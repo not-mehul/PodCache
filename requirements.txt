@@ -10,9 +10,12 @@ feedparser>=6.0
 # Transcription (local Whisper). CPU works; GPU optional.
 faster-whisper>=1.0
 
-# Ad detection via Claude (optional — falls back to an offline heuristic
-# detector when no ANTHROPIC_API_KEY is set).
-anthropic>=0.49
+# Ad detection via a small, local GGUF instruct model (runs on CPU). Falls back
+# to an offline heuristic detector when no model is available.
+llama-cpp-python>=0.2.80
+# One-time fetch of the model weights into models/ (skip if you supply your own
+# .gguf via PODCACHE_LLM_PATH).
+huggingface-hub>=0.23
 
 # ID3 / cover-art metadata
 mutagen>=1.47

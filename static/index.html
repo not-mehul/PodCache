@@ -362,7 +362,7 @@ fetch('/api/config').then(r => r.json()).then(cfg => {
     `<span class="item">Search · <b>${esc(cfg.search_provider)}</b></span><span class="sep"></span>` +
     `<span class="item">Ads · <b>${esc(cfg.detector)}</b></span><span class="sep"></span>` +
     `<span class="item">Whisper · <b>${esc(cfg.whisper_model)}</b></span>`;
-  $('footDetector').textContent = cfg.detector === 'Claude' ? 'Claude' : 'a heuristic detector';
+  $('footDetector').textContent = cfg.detector === 'local LLM' ? 'a small local model' : 'a heuristic detector';
 }).catch(() => {});
 
 // ─── Search ─────────────────────────────────────────────────────────────────

@@ -108,7 +108,9 @@ class JobManager:
                 "detect", "active", 0.0,
                 f"Finding ads with the {config.detector} detector…",
             )
-            ads = detect.detect_ads(segments)
+            ads = detect.detect_ads(
+                segments, on_progress=lambda f: job.stage("detect", "active", f)
+            )
             job.emit({"type": "ads", "ads": [a.as_dict() for a in ads]})
             removed = sum(a.end - a.start for a in ads)
             job.stage(
