@@ -63,10 +63,12 @@ def episodes(feed_url: str) -> dict[str, Any]:
 
 # ── processing ──────────────────────────────────────────────────────────────
 @app.post("/api/process")
-def process(req: ProcessRequest) -> dict[str, str]:
+async def process(req: ProcessRequest) -> dict[str, str]:
     if not req.episode.get("media_url"):
         raise HTTPException(status_code=400, detail="Episode has no media URL.")
-    loop = asyncio.get_event_loop()
+    # Capture the server's running loop here (on the event-loop thread) so the
+    # background worker can hand SSE events back to it across threads.
+    loop = asyncio.get_running_loop()
     job = manager.create(req.episode, req.show, loop)
     return {"job_id": job.id}
 
