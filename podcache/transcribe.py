@@ -34,19 +34,23 @@ class Segment:
 
 
 def _register_cuda_dlls() -> None:
-    """Add the NVIDIA pip-wheel DLL directories to the search path (Windows).
+    """Make the NVIDIA pip-wheel CUDA libraries findable (Windows).
 
-    `pip install nvidia-cublas-cu12 nvidia-cudnn-cu12` drops the CUDA 12 runtime
-    under site-packages/nvidia/*/bin, but Windows won't find those DLLs unless
-    the directories are registered explicitly.
+    `pip install nvidia-cublas-cu12 nvidia-cudnn-cu12 nvidia-cuda-runtime-cu12`
+    drops the CUDA 12 runtime under site-packages/nvidia/*/bin, but those
+    directories aren't on any search path. CTranslate2 resolves its CUDA
+    dependencies via PATH (it does not honour os.add_dll_directory), so we add
+    each directory to *both* the DLL search and PATH.
     """
     global _cuda_registered
     if _cuda_registered or sys.platform != "win32":
         return
     _cuda_registered = True
-    try:
-        import site
 
+    import glob
+    import site
+
+    try:
         roots = list(site.getsitepackages())
         user = site.getusersitepackages()
         if user:
@@ -54,17 +58,20 @@ def _register_cuda_dlls() -> None:
     except Exception:
         roots = [p for p in sys.path if p.endswith("site-packages")]
 
+    bindirs: set[str] = set()
     for root in roots:
-        nvidia = os.path.join(root, "nvidia")
-        if not os.path.isdir(nvidia):
-            continue
-        for comp in os.listdir(nvidia):
-            bindir = os.path.join(nvidia, comp, "bin")
-            if os.path.isdir(bindir):
-                try:
-                    os.add_dll_directory(bindir)
-                except OSError:
-                    pass
+        for dll in glob.glob(os.path.join(root, "nvidia", "**", "*.dll"), recursive=True):
+            bindirs.add(os.path.dirname(dll))
+
+    path = os.environ.get("PATH", "")
+    for d in sorted(bindirs):
+        try:
+            os.add_dll_directory(d)
+        except OSError:
+            pass
+        if d not in path:
+            path = d + os.pathsep + path
+    os.environ["PATH"] = path
 
 
 def _build_model(device: str, compute_type: str):
