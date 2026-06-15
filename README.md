@@ -86,6 +86,24 @@ All settings are environment variables (see `.env.example`):
 | `PODCACHE_DATA_DIR` | `data` | Where files are written |
 | `PODCACHE_HOST` / `PORT` | `127.0.0.1` / `8000` | Bind address |
 
+## GPU transcription (optional, much faster)
+
+`device=auto` uses your NVIDIA GPU automatically — but faster-whisper needs the
+CUDA 12 runtime (cuBLAS + cuDNN), which ships separately from the GPU driver.
+Install the runtime via pip and set the compute type to `float16`:
+
+```bash
+pip install nvidia-cublas-cu12 nvidia-cudnn-cu12
+# in .env:
+#   PODCACHE_WHISPER_COMPUTE=float16
+#   PODCACHE_WHISPER_MODEL=small   # (or larger — the GPU can handle it)
+```
+
+PodCache registers those wheel DLL directories automatically on Windows, so no
+manual `PATH` editing is needed. If CUDA still can't load, transcription falls
+back to CPU and prints a notice in the server console (newer GPUs may need a
+recent `ctranslate2`/CUDA — `pip install -U ctranslate2`).
+
 ## Notes
 
 - **Fully local.** The server binds to `127.0.0.1`, all files stay in a local

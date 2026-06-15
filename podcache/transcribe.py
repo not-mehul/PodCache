@@ -4,13 +4,17 @@ Produces a timestamped transcript: a list of sentences, each with an exact
 `start` and `end` in seconds. Those timestamps are what the ad detector reasons
 over and what the splicer ultimately cuts on.
 
-The default device is `auto`, which uses the GPU when CTranslate2 finds one. If
-the GPU path can't load its CUDA libraries (a common Windows situation), we fall
-back to CPU automatically rather than failing the job.
+GPU notes: `device=auto` uses CUDA when CTranslate2 can find it. The CUDA 12
+runtime (cuBLAS + cuDNN) ships separately from the NVIDIA driver; the easiest way
+to provide it is the pip wheels `nvidia-cublas-cu12` and `nvidia-cudnn-cu12`. On
+Windows those DLLs land in site-packages but aren't on the search path, so we
+register their directories here. If CUDA still can't load, we fall back to CPU.
 """
 
 from __future__ import annotations
 
+import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -19,6 +23,7 @@ from .config import config
 
 _model = None  # lazily-loaded singleton; the model is expensive to construct
 _model_device: str | None = None
+_cuda_registered = False
 
 
 @dataclass
@@ -28,7 +33,42 @@ class Segment:
     text: str
 
 
+def _register_cuda_dlls() -> None:
+    """Add the NVIDIA pip-wheel DLL directories to the search path (Windows).
+
+    `pip install nvidia-cublas-cu12 nvidia-cudnn-cu12` drops the CUDA 12 runtime
+    under site-packages/nvidia/*/bin, but Windows won't find those DLLs unless
+    the directories are registered explicitly.
+    """
+    global _cuda_registered
+    if _cuda_registered or sys.platform != "win32":
+        return
+    _cuda_registered = True
+    try:
+        import site
+
+        roots = list(site.getsitepackages())
+        user = site.getusersitepackages()
+        if user:
+            roots.append(user)
+    except Exception:
+        roots = [p for p in sys.path if p.endswith("site-packages")]
+
+    for root in roots:
+        nvidia = os.path.join(root, "nvidia")
+        if not os.path.isdir(nvidia):
+            continue
+        for comp in os.listdir(nvidia):
+            bindir = os.path.join(nvidia, comp, "bin")
+            if os.path.isdir(bindir):
+                try:
+                    os.add_dll_directory(bindir)
+                except OSError:
+                    pass
+
+
 def _build_model(device: str, compute_type: str):
+    _register_cuda_dlls()
     from faster_whisper import WhisperModel  # imported lazily
 
     return WhisperModel(config.whisper_model, device=device, compute_type=compute_type)
@@ -77,6 +117,13 @@ def transcribe(
     except RuntimeError as exc:
         # GPU libraries missing/unloadable — rebuild on CPU and try again.
         if _is_gpu_error(exc) and (_model_device or config.whisper_device).lower() != "cpu":
+            print(
+                f"[PodCache] GPU transcription unavailable ({exc}). Falling back "
+                "to CPU. Install nvidia-cublas-cu12 + nvidia-cudnn-cu12 to use the "
+                "GPU. See the README.",
+                file=sys.stderr,
+                flush=True,
+            )
             _model = _build_model("cpu", "int8")
             _model_device = "cpu"
             return _run(_model, audio_path, on_progress)
