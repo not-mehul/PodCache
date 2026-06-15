@@ -1,0 +1,18 @@
+# PodCache — podcast ad-removal tool
+# Core web server
+fastapi>=0.110
+uvicorn[standard]>=0.29
+
+# HTTP + feed parsing
+httpx>=0.27
+feedparser>=6.0
+
+# Transcription (local Whisper). CPU works; GPU optional.
+faster-whisper>=1.0
+
+# Ad detection via Claude (optional — falls back to an offline heuristic
+# detector when no ANTHROPIC_API_KEY is set).
+anthropic>=0.49
+
+# ID3 / cover-art metadata
+mutagen>=1.47

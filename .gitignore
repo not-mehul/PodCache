@@ -1,0 +1,15 @@
+# PodCache
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Working files: downloads, transcripts, finished cuts
+data/
+*.mp3
+*.m4a
+*.wav
+
+# Whisper model cache
+models/
