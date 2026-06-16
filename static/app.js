@@ -1,8 +1,12 @@
 /* PodCache — progressive enhancement only.
-   The site works without this file; it adds the theme toggle and live download
-   progress. Everything is guarded so a failure can never break the page. */
+The site works without this file; it adds the theme toggle, episode-selection
+helpers, and live download progress. Every part is guarded. */
 (function () {
   "use strict";
+
+  // Fallback glyph for broken images (used by server-rendered onerror handlers).
+  window.__mic =
+    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.85 18.58a9 9 0 1 0-9.7 0"/><path d="M8 14a5 5 0 1 1 8 0"/><circle cx="12" cy="11" r="1"/><path d="M13 17a1 1 0 1 0-2 0l.5 4.5a.5.5 0 1 0 1 0Z"/></svg>';
 
   // ── Theme toggle ──────────────────────────────────────────────────────────
   try {
@@ -15,108 +19,185 @@
         document.documentElement.removeAttribute("data-theme");
         if (meta) meta.setAttribute("content", "#0f0d0b");
       }
-      var t = document.getElementById("themeToggle");
-      if (t) t.setAttribute("aria-checked", mode === "light" ? "true" : "false");
+      var t = document.getElementById("theme-toggle");
+      if (t)
+        t.setAttribute("aria-checked", mode === "light" ? "true" : "false");
     }
-    var current = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
-    applyTheme(current);
-    var toggle = document.getElementById("themeToggle");
+    applyTheme(
+      document.documentElement.getAttribute("data-theme") === "light"
+        ? "light"
+        : "dark",
+    );
+    var toggle = document.getElementById("theme-toggle");
     if (toggle) {
       toggle.addEventListener("click", function () {
-        var next = document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light";
-        try { localStorage.setItem("theme", next); } catch (e) {}
+        var next =
+          document.documentElement.getAttribute("data-theme") === "light"
+            ? "dark"
+            : "light";
+        try {
+          localStorage.setItem("theme", next);
+        } catch (e) {}
         applyTheme(next);
       });
     }
-  } catch (e) { /* theme is non-critical */ }
+  } catch (e) {
+    /* theme is non-critical */
+  }
 
-  // Fallback image glyph used by server-rendered onerror handlers.
-  window.__mic =
-    '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.85 18.58a9 9 0 1 0-9.7 0"/><path d="M8 14a5 5 0 1 1 8 0"/><circle cx="12" cy="11" r="1"/><path d="M13 17a1 1 0 1 0-2 0l.5 4.5a.5.5 0 1 0 1 0Z"/></svg>';
-
-  // ── Episode multi-select: "Select all" + live button label ────────────────
+  // ── Episode selection helpers ─────────────────────────────────────────────
   try {
-    var selectAll = document.getElementById("selectAll");
     var cbs = Array.prototype.slice.call(document.querySelectorAll(".ep-cb"));
     if (cbs.length) {
       var btnLabel = document.getElementById("dlBtnLabel");
-      var selCount = document.getElementById("selCount");
+      var metaSelected = document.getElementById("metaSelected");
+      var selectPage = document.getElementById("selectPage");
+      var clearSel = document.getElementById("clearSel");
+      var downloadBtn = document.getElementById("downloadBtn");
       function refresh() {
-        var n = cbs.filter(function (c) { return c.checked; }).length;
-        if (btnLabel) btnLabel.textContent = n ? "Download " + n + " selected" : "Download selected";
-        if (selCount) selCount.textContent = n ? n + " selected" : "Select all on page";
-        if (selectAll) selectAll.checked = n === cbs.length;
+        var n = cbs.filter(function (c) {
+          return c.checked;
+        }).length;
+        if (btnLabel)
+          btnLabel.textContent = n
+            ? "Download " + n + " selected"
+            : "Download selected";
+        if (metaSelected) metaSelected.textContent = String(n);
+        if (downloadBtn) downloadBtn.disabled = n === 0;
       }
-      cbs.forEach(function (c) { c.addEventListener("change", refresh); });
-      if (selectAll) {
-        selectAll.addEventListener("change", function (e) {
-          cbs.forEach(function (c) { c.checked = e.target.checked; });
+      cbs.forEach(function (c) {
+        c.addEventListener("change", refresh);
+      });
+      if (selectPage)
+        selectPage.addEventListener("click", function () {
+          cbs.forEach(function (c) {
+            c.checked = true;
+          });
           refresh();
         });
-      }
+      if (clearSel)
+        clearSel.addEventListener("click", function () {
+          cbs.forEach(function (c) {
+            c.checked = false;
+          });
+          refresh();
+        });
       refresh();
     }
-  } catch (e) { /* selection is non-critical; checkboxes still work */ }
+  } catch (e) {
+    /* selection is non-critical; checkboxes still work */
+  }
 
   // ── Live download progress (Downloads page only) ──────────────────────────
   try {
-    var list = document.getElementById("dlList");
-    var section = document.getElementById("downloadsSection");
-    if (!section) return; // not on the downloads page
+    if (!document.getElementById("downloadsTitle")) return; // not the downloads page
     if (typeof EventSource === "undefined") return;
 
-    var VERB = { queued: "Queued", downloading: "Downloading", completed: "Completed", failed: "Failed", skipped: "Already saved" };
+    var VERB = {
+      queued: "Queued",
+      downloading: "Downloading",
+      completed: "Completed",
+      failed: "Failed",
+      skipped: "Already saved",
+    };
+    function escapeHTML(s) {
+      var d = document.createElement("div");
+      d.textContent = s == null ? "" : s;
+      return d.innerHTML;
+    }
 
-    function rowHTML(it) {
+    function thumbHTML(it) {
+      if (it.image)
+        return (
+          '<div class="qthumb"><img src="' +
+          escapeHTML(it.image) +
+          '" alt="" loading="lazy" onerror="this.parentNode.innerHTML=window.__mic" /></div>'
+        );
+      return '<div class="qthumb">' + window.__mic + "</div>";
+    }
+
+    function bodyHTML(it) {
       var pct = Math.round((it.progress || 0) * 100);
       var indet = it.status === "downloading" && !it.progress;
-      var tail = "";
-      if (it.status === "failed" && it.error) tail = "<span>· " + escapeHTML(it.error) + "</span>";
-      else if ((it.status === "completed" || it.status === "skipped") && it.rel_path)
-        tail = '<span>· <a href="/file/' + encodeURIComponent(it.id) + '" download>' + escapeHTML(it.rel_path) + "</a></span>";
-      else if (it.status === "downloading") tail = "<span>· " + pct + "%</span>";
+      var chips = "";
+      if (it.status === "failed" && it.error)
+        chips = '<span class="qchip mono">' + escapeHTML(it.error) + "</span>";
+      else if (
+        (it.status === "completed" || it.status === "skipped") &&
+        it.rel_path
+      )
+        chips =
+          '<a href="/file/' +
+          encodeURIComponent(it.id) +
+          '" download>' +
+          escapeHTML(it.rel_path) +
+          "</a>";
+      else if (it.status === "downloading")
+        chips = '<span class="qchip mono">' + pct + "%</span>";
       return (
-        '<div class="qrow"><span class="qname">' + escapeHTML(it.title) + '</span>' +
-        '<span class="qstatus">' + (VERB[it.status] || it.status) + "</span></div>" +
-        '<div class="qmeta"><span class="show">' + escapeHTML(it.show) + "</span>" + tail + "</div>" +
-        '<div class="progress' + (indet ? " indeterminate" : "") + '"><div class="bar" style="width:' + pct + '%"></div></div>'
+        '<div class="qbody"><p class="qtitle">' +
+        escapeHTML(it.title) +
+        "</p>" +
+        '<div class="qmeta"><span class="status-verb">' +
+        (VERB[it.status] || it.status) +
+        "</span>" +
+        '<span class="qchip">' +
+        escapeHTML(it.show) +
+        "</span>" +
+        chips +
+        "</div>" +
+        '<div class="qprogress' +
+        (indet ? " indeterminate" : "") +
+        '"><div class="bar" style="width:' +
+        pct +
+        '%"></div></div></div>'
       );
     }
-    function escapeHTML(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML; }
+
+    var section = document.querySelector(".section");
 
     function ensureList() {
+      var list = document.querySelector(".queue-list");
       if (!list) {
-        // Replace an empty-state placeholder with a real list container.
-        var es = section.querySelector(".empty-state");
+        var es = document.querySelector(".empty-state");
         list = document.createElement("div");
-        list.className = "dl-list";
-        list.id = "dlList";
+        list.className = "queue-list";
         if (es && es.parentNode) es.parentNode.replaceChild(list, es);
-        else section.appendChild(list);
+        else if (section) section.appendChild(list);
       }
       return list;
     }
     function upsert(it) {
       var el = document.getElementById("dl-" + it.id);
       if (!el) {
+        var list = ensureList();
+        if (!list) return;
         el = document.createElement("div");
         el.id = "dl-" + it.id;
-        ensureList().appendChild(el);
+        list.appendChild(el);
       }
       el.className = "qitem " + it.status;
       el.setAttribute("data-status", it.status);
-      el.innerHTML = rowHTML(it);
+      el.innerHTML = thumbHTML(it) + bodyHTML(it);
     }
     function updateHeading(items) {
-      var active = 0;
-      for (var k in items) if (items[k].status === "queued" || items[k].status === "downloading") active++;
-      var total = Object.keys(items).length;
+      var total = Object.keys(items).length,
+        active = 0;
+      for (var k in items)
+        if (items[k].status === "queued" || items[k].status === "downloading")
+          active++;
       var h = document.getElementById("downloadsTitle");
-      if (h) h.textContent = total ? (active ? active + " in progress · " + total + " total" : total + (total === 1 ? " download" : " downloads")) : "Queue";
+      if (h)
+        h.textContent = total
+          ? active
+            ? active + " in progress · " + total + " total"
+            : total + (total === 1 ? " download" : " downloads")
+          : "Queue";
       var tab = document.querySelector('.tabs a[href="/downloads"]');
       if (tab) {
         var c = tab.querySelector(".count");
-        if (total && !c) { c = document.createElement("span"); c.className = "count"; tab.appendChild(document.createTextNode(" ")); tab.appendChild(c); }
+        if (total && !c) { tab.appendChild(document.createTextNode(" ")); c = document.createElement("span"); c.className = "count"; tab.appendChild(c); }
+        }
         if (c) c.textContent = total ? "(" + total + ")" : "";
       }
     }
@@ -124,10 +205,18 @@
     var items = {};
     var src = new EventSource("/events");
     src.onmessage = function (e) {
-      var ev; try { ev = JSON.parse(e.data); } catch (x) { return; }
+      var ev;
+      try {
+        ev = JSON.parse(e.data);
+      } catch (x) {
+        return;
+      }
       if (ev.type === "snapshot") {
         items = {};
-        (ev.items || []).forEach(function (it) { items[it.id] = it; upsert(it); });
+        (ev.items || []).forEach(function (it) {
+          items[it.id] = it;
+          upsert(it);
+        });
         updateHeading(items);
       } else if (ev.type === "item") {
         items[ev.id] = Object.assign(items[ev.id] || {}, ev);
@@ -135,6 +224,8 @@
         updateHeading(items);
       }
     };
-    src.onerror = function () { /* EventSource auto-reconnects; snapshot re-syncs */ };
-  } catch (e) { /* live updates are non-critical; the page still shows a snapshot */ }
+    src.onerror = function () { /* auto-reconnects; snapshot re-syncs */ };
+  } catch (e) {
+    /* live updates are non-critical; the page still shows a snapshot */
+  }
 })();

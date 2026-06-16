@@ -33,6 +33,7 @@ class DownloadItem:
     show_title: str
     episode_title: str
     media_url: str
+    image: str = ""
     status: str = "queued"  # queued | downloading | completed | failed | skipped
     progress: float = 0.0
     error: str = ""
@@ -43,6 +44,7 @@ class DownloadItem:
             "id": self.id,
             "show": self.show_title,
             "title": self.episode_title,
+            "image": self.image,
             "status": self.status,
             "progress": round(self.progress, 3),
             "error": self.error,
@@ -89,8 +91,11 @@ class DownloadManager:
         return len(self._order)
 
     # ── queue control ─────────────────────────────────────────────────────────
-    def enqueue(self, show: dict[str, Any], episodes: list[dict[str, Any]]) -> list[str]:
+    def enqueue(
+        self, show: dict[str, Any], episodes: list[dict[str, Any]]
+    ) -> list[str]:
         show_title = (show.get("title") or "Unknown Show").strip()
+        image = show.get("image") or ""
         ids: list[str] = []
         for ep in episodes:
             url = ep.get("media_url")
@@ -101,6 +106,7 @@ class DownloadManager:
                 show_title=show_title,
                 episode_title=(ep.get("title") or "Episode").strip(),
                 media_url=url,
+                image=ep.get("image") or image,
             )
             with self._lock:
                 self._items[item.id] = item
@@ -114,9 +120,7 @@ class DownloadManager:
         """Drop completed/failed/skipped items from the list (files stay on disk)."""
         with self._lock:
             keep = {"queued", "downloading"}
-            self._order = [
-                i for i in self._order if self._items[i].status in keep
-            ]
+            self._order = [i for i in self._order if self._items[i].status in keep]
             self._items = {i: self._items[i] for i in self._order}
         self._broadcast({"type": "snapshot", "items": self.snapshot()})
 
@@ -139,7 +143,9 @@ class DownloadManager:
         stem = _safe(item.episode_title, "episode")
 
         # Skip if we already have this episode on disk.
-        existing = next(iter(dest_dir.glob(f"{stem}.*")), None) if dest_dir.exists() else None
+        existing = (
+            next(iter(dest_dir.glob(f"{stem}.*")), None) if dest_dir.exists() else None
+        )
         if existing is not None and existing.is_file():
             item.rel_path = str(existing.relative_to(config.download_dir))
             self._update(item, status="skipped", progress=1.0)
@@ -157,11 +163,15 @@ class DownloadManager:
                 self._update(item, progress=frac)
 
         try:
-            path = download.download(item.media_url, dest_dir, stem, on_progress=on_progress)
+            path = download.download(
+                item.media_url, dest_dir, stem, on_progress=on_progress
+            )
             item.rel_path = str(path.relative_to(config.download_dir))
             self._update(item, status="completed", progress=1.0)
         except Exception as exc:
-            self._update(item, status="failed", error=str(exc) or exc.__class__.__name__)
+            self._update(
+                item, status="failed", error=str(exc) or exc.__class__.__name__
+            )
 
 
 manager = DownloadManager()

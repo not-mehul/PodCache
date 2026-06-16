@@ -14,7 +14,13 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Query, Request
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response, StreamingResponse
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    RedirectResponse,
+    Response,
+    StreamingResponse,
+)
 
 from . import feed, podcastindex, render
 from .manager import manager
@@ -39,14 +45,25 @@ def _page(html_text: str) -> HTMLResponse:
 # ── static assets ────────────────────────────────────────────────────────────
 @app.get("/static/app.css")
 def css() -> FileResponse:
-    return FileResponse(_STATIC / "app.css", media_type="text/css", headers={"Cache-Control": "no-cache"})
+    return FileResponse(
+        _STATIC / "app.css",
+        media_type="text/css",
+        headers={"Cache-Control": "no-cache"},
+    )
 
 
 @app.get("/static/app.js")
 def js() -> FileResponse:
     return FileResponse(
-        _STATIC / "app.js", media_type="application/javascript", headers={"Cache-Control": "no-cache"}
+        _STATIC / "app.js",
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-cache"},
     )
+
+
+@app.get("/static/favicon.svg")
+def favicon() -> FileResponse:
+    return FileResponse(_STATIC / "favicon.svg", media_type="image/svg+xml")
 
 
 # ── pages ─────────────────────────────────────────────────────────────────────
@@ -64,7 +81,11 @@ def search(q: str = "") -> HTMLResponse:
         shows = podcastindex.search_shows(q)
         return _page(render.page_results(shows, q, downloads_count=manager.count()))
     except Exception as exc:
-        return _page(render.page_results([], q, downloads_count=manager.count(), error=f"Search failed: {exc}"))
+        return _page(
+            render.page_results(
+                [], q, downloads_count=manager.count(), error=f"Search failed: {exc}"
+            )
+        )
 
 
 @app.get("/show", response_class=HTMLResponse)
@@ -78,11 +99,21 @@ def show(
         data = feed.parse_feed(feed_url)
     except Exception as exc:
         return _page(
-            render.page_results([], q, downloads_count=manager.count(), error=f"Could not read feed: {exc}")
+            render.page_results(
+                [],
+                q,
+                downloads_count=manager.count(),
+                error=f"Could not read feed: {exc}",
+            )
         )
     return _page(
         render.page_show(
-            data["show"], data["episodes"], q, page=page, downloads_count=manager.count(), queued=queued
+            data["show"],
+            data["episodes"],
+            q,
+            page=page,
+            downloads_count=manager.count(),
+            queued=queued,
         )
     )
 
@@ -96,24 +127,29 @@ async def start_download(request: Request) -> RedirectResponse:
     body = (await request.body()).decode("utf-8")
     data = parse_qs(body, keep_blank_values=True)
     show_title = (data.get("show_title", ["Unknown Show"])[0] or "Unknown Show").strip()
+    show_image = data.get("show_image", [""])[0]
     return_to = data.get("return_to", [""])[0]
     episodes = []
     for raw in data.get("episode", []):
         try:
             obj = json.loads(raw)
             if obj.get("u"):
-                episodes.append({"media_url": obj["u"], "title": obj.get("t", "Episode")})
+                episodes.append(
+                    {"media_url": obj["u"], "title": obj.get("t", "Episode")}
+                )
         except (json.JSONDecodeError, TypeError):
             continue
     if episodes:
-        manager.enqueue({"title": show_title}, episodes)
+        manager.enqueue({"title": show_title, "image": show_image}, episodes)
 
     # Return to the show page (so the user can keep paginating and selecting),
     # carrying a queued count for the confirmation notice. Only honour a local
     # /show path to avoid an open redirect.
     if return_to.startswith("/show"):
         sep = "&" if "?" in return_to else "?"
-        return RedirectResponse(url=f"{return_to}{sep}queued={len(episodes)}", status_code=303)
+        return RedirectResponse(
+            url=f"{return_to}{sep}queued={len(episodes)}", status_code=303
+        )
     return RedirectResponse(url="/downloads", status_code=303)
 
 
@@ -157,5 +193,7 @@ async def events(request: Request) -> StreamingResponse:
             manager.unsubscribe(queue)
 
     return StreamingResponse(
-        stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+        stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
