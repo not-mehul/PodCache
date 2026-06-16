@@ -197,7 +197,6 @@ helpers, and live download progress. Every part is guarded. */
       if (tab) {
         var c = tab.querySelector(".count");
         if (total && !c) { tab.appendChild(document.createTextNode(" ")); c = document.createElement("span"); c.className = "count"; tab.appendChild(c); }
-        }
         if (c) c.textContent = total ? "(" + total + ")" : "";
       }
     }

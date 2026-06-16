@@ -47,14 +47,26 @@ def download(
         resp.raise_for_status()
         ext = _extension_for(str(resp.url), resp.headers.get("content-type", ""))
         dest = dest_dir / f"{safe}{ext}"
+        dest_tmp = dest.with_suffix(dest.suffix + ".tmp")
         total = int(resp.headers.get("content-length") or 0)
         written = 0
-        with dest.open("wb") as fh:
-            for chunk in resp.iter_bytes(_CHUNK):
-                fh.write(chunk)
-                written += len(chunk)
-                if on_progress and total:
-                    on_progress(min(written / total, 1.0))
+        try:
+            with dest_tmp.open("wb") as fh:
+                for chunk in resp.iter_bytes(_CHUNK):
+                    fh.write(chunk)
+                    written += len(chunk)
+                    if on_progress and total:
+                        on_progress(min(written / total, 1.0))
+            if dest_tmp.exists():
+                dest_tmp.replace(dest)
+        except Exception:
+            if dest_tmp.exists():
+                try:
+                    dest_tmp.unlink()
+                except Exception:
+                    pass
+            raise
+
     if on_progress:
         on_progress(1.0)
     return dest

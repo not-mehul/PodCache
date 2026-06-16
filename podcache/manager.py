@@ -70,17 +70,21 @@ class DownloadManager:
 
     def subscribe(self) -> asyncio.Queue:
         q: asyncio.Queue = asyncio.Queue()
-        self._subscribers.add(q)
+        with self._lock:
+            self._subscribers.add(q)
         return q
 
     def unsubscribe(self, q: asyncio.Queue) -> None:
-        self._subscribers.discard(q)
+        with self._lock:
+            self._subscribers.discard(q)
 
     def _broadcast(self, event: dict[str, Any]) -> None:
         """Push an event to every subscriber (safe to call from any thread)."""
         if self._loop is None:
             return
-        for q in list(self._subscribers):
+        with self._lock:
+            subs = list(self._subscribers)
+        for q in subs:
             self._loop.call_soon_threadsafe(q.put_nowait, event)
 
     def snapshot(self) -> list[dict[str, Any]]:
@@ -143,10 +147,13 @@ class DownloadManager:
         stem = _safe(item.episode_title, "episode")
 
         # Skip if we already have this episode on disk.
-        existing = (
-            next(iter(dest_dir.glob(f"{stem}.*")), None) if dest_dir.exists() else None
-        )
-        if existing is not None and existing.is_file():
+        existing = None
+        if dest_dir.exists():
+            for p in dest_dir.glob(f"{stem}.*"):
+                if p.is_file() and not p.name.endswith(".tmp"):
+                    existing = p
+                    break
+        if existing is not None:
             item.rel_path = str(existing.relative_to(config.download_dir))
             self._update(item, status="skipped", progress=1.0)
             return

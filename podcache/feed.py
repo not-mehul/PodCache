@@ -54,6 +54,23 @@ def parse_feed(feed_url: str, limit: int | None = None) -> dict[str, Any]:
     if limit is None:
         limit = config.feed_limit
     parsed = feedparser.parse(feed_url)
+
+    # Check for HTTP status errors (if feed was fetched over HTTP/HTTPS)
+    status = parsed.get("status")
+    if status is not None and status >= 400:
+        raise ValueError(f"HTTP error {status} when fetching feed")
+
+    # Check for connection/network/parsing failures that resulted in no feed data
+    if parsed.get("bozo") and not parsed.get("feed") and not parsed.get("entries"):
+        exc = parsed.get("bozo_exception")
+        if isinstance(exc, Exception):
+            raise exc
+        raise ValueError("Failed to parse podcast feed")
+
+    # Check for empty/invalid feed
+    if not parsed.feed.get("title") and not parsed.entries:
+        raise ValueError("Invalid or empty podcast feed")
+
     show_image = ""
     if parsed.feed.get("image"):
         show_image = parsed.feed.image.get("href", "")

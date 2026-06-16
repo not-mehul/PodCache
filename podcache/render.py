@@ -392,7 +392,7 @@ def page_downloads(items: list[dict[str, Any]]) -> str:
             if active
             else f"{len(items)} download{'s' if len(items) != 1 else ''}"
         )
-        body = f"""<section class="section">
+    body = f"""<section class="section">
       <div class="section-head"><span class="marker">Queue.</span><h2 class="section-title" id="downloadsTitle">{esc(heading)}</h2>{controls}</div>
       {inner}
 </section>"""
