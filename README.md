@@ -56,9 +56,32 @@ live, and finished files are linked from there (and saved on disk).
 | `PODCASTINDEX_API_KEY` / `_SECRET` | — | PodcastIndex search (optional) |
 | `PODCACHE_HOST` / `PORT` | `127.0.0.1` / `8000` | Bind address |
 
+## Architecture
+
+PodCache is a **server-rendered multi-page app**. Every core action — search,
+browse, download — is a plain server route and HTML form, so it works with
+JavaScript disabled and never depends on a client-side fetch. JavaScript only
+*enhances*: it persists the theme and live-updates the download queue over
+Server-Sent Events.
+
+```
+podcache/
+  server.py        routes (HTML pages, form POSTs, /events SSE, file serving)
+  render.py        server-side HTML rendering (no template-engine dependency)
+  podcastindex.py  search (PodcastIndex + iTunes fallback)
+  feed.py          RSS parsing
+  download.py      chunked HTTP download
+  manager.py       concurrent download queue (thread pool + SSE broadcast)
+static/
+  app.css          the Editorial Dusk & Dawn design system
+  app.js           progressive enhancement (theme toggle, live progress)
+```
+
 ## Notes
 
 - **Local-first.** The server binds to `127.0.0.1`; downloads stay in your
   chosen folder.
 - Re-downloading an episode you already have is skipped automatically (the
   existing file on disk is reused).
+- Works without JavaScript: search and downloads are server-rendered. With JS
+  on, the download queue updates live.

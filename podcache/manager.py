@@ -85,6 +85,9 @@ class DownloadManager:
         with self._lock:
             return [self._items[i].as_dict() for i in self._order]
 
+    def count(self) -> int:
+        return len(self._order)
+
     # ── queue control ─────────────────────────────────────────────────────────
     def enqueue(self, show: dict[str, Any], episodes: list[dict[str, Any]]) -> list[str]:
         show_title = (show.get("title") or "Unknown Show").strip()
