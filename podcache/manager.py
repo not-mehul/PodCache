@@ -9,7 +9,6 @@ sub-folder per show.
 from __future__ import annotations
 
 import asyncio
-import re
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -19,12 +18,7 @@ from typing import Any
 
 from . import download
 from .config import config
-
-
-def _safe(name: str, fallback: str = "untitled") -> str:
-    cleaned = re.sub(r'[<>:"/\\|?*\x00-\x1f]+', " ", name).strip().rstrip(".")
-    cleaned = re.sub(r"\s+", " ", cleaned)
-    return cleaned[:120] or fallback
+from .download import safe_name
 
 
 @dataclass
@@ -143,14 +137,18 @@ class DownloadManager:
         self._broadcast({"type": "item", **item.as_dict()})
 
     def _run(self, item: DownloadItem) -> None:
-        dest_dir = config.download_dir / _safe(item.show_title, "show")
-        stem = _safe(item.episode_title, "episode")
+        # Use the same name the downloader will write, so the skip-existing
+        # check below actually matches the file on disk.
+        dest_dir = config.download_dir / safe_name(item.show_title, "show")
+        stem = safe_name(item.episode_title, "episode")
 
-        # Skip if we already have this episode on disk.
+        # Skip if we already have this episode on disk. Match by filename prefix
+        # (not glob) so titles containing [ ] * ? can't break the lookup.
         existing = None
         if dest_dir.exists():
-            for p in dest_dir.glob(f"{stem}.*"):
-                if p.is_file() and not p.name.endswith(".tmp"):
+            prefix = f"{stem}."
+            for p in dest_dir.iterdir():
+                if p.is_file() and p.name.startswith(prefix) and not p.name.endswith(".tmp"):
                     existing = p
                     break
         if existing is not None:

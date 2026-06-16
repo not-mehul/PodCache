@@ -2,7 +2,7 @@
 
 feedparser does the heavy lifting of navigating messy podcast XML. We extract
 the playable enclosure (the .mp3/.m4a media URL) and the per-episode metadata
-PodCache will later restore onto the ad-free file.
+PodCache shows in the episode list.
 """
 
 from __future__ import annotations

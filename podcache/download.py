@@ -16,6 +16,18 @@ import httpx
 _CHUNK = 1 << 16  # 64 KiB
 
 
+def safe_name(name: str, fallback: str = "episode") -> str:
+    """A filesystem-safe name shared by the writer and the skip-existing check.
+
+    Strips characters illegal on Windows/macOS/Linux, collapses whitespace, and
+    caps length. Idempotent — applying it twice yields the same result — so the
+    downloader and the manager always agree on a file's name.
+    """
+    cleaned = re.sub(r'[<>:"/\\|?*\x00-\x1f]+', " ", name).strip().rstrip(".")
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned[:120] or fallback
+
+
 def _extension_for(url: str, content_type: str) -> str:
     path = urlparse(url).path.lower()
     for ext in (".mp3", ".m4a", ".aac", ".ogg", ".wav", ".mp4"):
@@ -41,7 +53,7 @@ def download(
     via fractions that stay at 0).
     """
     dest_dir.mkdir(parents=True, exist_ok=True)
-    safe = re.sub(r"[^A-Za-z0-9._-]+", "_", basename).strip("_") or "episode"
+    safe = safe_name(basename)
 
     with httpx.stream("GET", url, follow_redirects=True, timeout=60) as resp:
         resp.raise_for_status()
