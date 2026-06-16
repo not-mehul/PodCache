@@ -259,24 +259,35 @@ const I = {
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
 };
 
-// Theme
+// Theme + icons. Defensive: a failure here (e.g. localStorage blocked, a
+// missing element) must NEVER abort the script before the search handler
+// attaches — otherwise the form would fall back to a default page reload.
 const themeMeta = document.querySelector('meta[name="theme-color"]');
 function applyTheme(mode) {
   const t = document.getElementById('themeToggle');
-  if (mode === 'light') { document.documentElement.setAttribute('data-theme','light'); t.setAttribute('aria-checked','true'); themeMeta.setAttribute('content','#efe6d8'); }
-  else { document.documentElement.removeAttribute('data-theme'); t.setAttribute('aria-checked','false'); themeMeta.setAttribute('content','#0f0d0b'); }
+  if (mode === 'light') { document.documentElement.setAttribute('data-theme','light'); if(t) t.setAttribute('aria-checked','true'); if(themeMeta) themeMeta.setAttribute('content','#efe6d8'); }
+  else { document.documentElement.removeAttribute('data-theme'); if(t) t.setAttribute('aria-checked','false'); if(themeMeta) themeMeta.setAttribute('content','#0f0d0b'); }
 }
-(function(){ const s=localStorage.getItem('theme'); const pl=matchMedia('(prefers-color-scheme: light)').matches; applyTheme(s||(pl?'light':'dark')); })();
-document.getElementById('themeToggle').addEventListener('click', () => {
-  const next = document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';
-  localStorage.setItem('theme', next); applyTheme(next);
-});
-document.querySelector('.ghost-moon').innerHTML = icon(I.moon, 13);
-document.querySelector('.ghost-sun').innerHTML = icon(I.sun, 13);
-document.querySelector('.theme-toggle .knob').innerHTML = icon(I.moon, 13);
-document.getElementById('searchIcon').innerHTML = icon(I.search, 14);
-document.getElementById('dlIcon').innerHTML = icon(I.download, 14);
-document.getElementById('selectAllBox').innerHTML = icon(I.check, 12);
+try {
+  let stored = null; try { stored = localStorage.getItem('theme'); } catch (_) {}
+  const pl = matchMedia('(prefers-color-scheme: light)').matches;
+  applyTheme(stored || (pl ? 'light' : 'dark'));
+  const tt = document.getElementById('themeToggle');
+  if (tt) tt.addEventListener('click', () => {
+    const next = document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';
+    try { localStorage.setItem('theme', next); } catch (_) {}
+    applyTheme(next);
+  });
+} catch (e) { console.warn('PodCache: theme init failed', e); }
+try {
+  const setIcon = (sel, svg) => { const el = document.querySelector(sel); if (el) el.innerHTML = svg; };
+  setIcon('.ghost-moon', icon(I.moon, 13));
+  setIcon('.ghost-sun', icon(I.sun, 13));
+  setIcon('.theme-toggle .knob', icon(I.moon, 13));
+  setIcon('#searchIcon', icon(I.search, 14));
+  setIcon('#dlIcon', icon(I.download, 14));
+  setIcon('#selectAllBox', icon(I.check, 12));
+} catch (e) { console.warn('PodCache: icon init failed', e); }
 
 const $ = (id) => document.getElementById(id);
 const show = (id) => $(id).classList.remove('hidden');
@@ -418,4 +429,4 @@ function connectEvents(){
   };
   src.onerror=()=>{ /* EventSource auto-reconnects; snapshot re-syncs state */ };
 }
-connectEvents();
+try { connectEvents(); } catch (e) { console.warn('PodCache: events init failed', e); }
