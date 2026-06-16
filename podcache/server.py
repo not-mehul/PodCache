@@ -39,7 +39,11 @@ class DownloadRequest(BaseModel):
 # ── pages / config ──────────────────────────────────────────────────────────
 @app.get("/", response_class=HTMLResponse)
 def index() -> HTMLResponse:
-    return HTMLResponse((_STATIC / "index.html").read_text(encoding="utf-8"))
+    # no-store so a redesigned UI is never masked by a stale cached page.
+    return HTMLResponse(
+        (_STATIC / "index.html").read_text(encoding="utf-8"),
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
 
 
 @app.get("/api/config")
