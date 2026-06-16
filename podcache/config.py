@@ -49,6 +49,10 @@ class Config:
     )
     concurrency: int = max(1, int(os.environ.get("PODCACHE_CONCURRENCY", "3")))
 
+    # Episode listing: how many per page, and the most to read from a feed.
+    page_size: int = max(1, int(os.environ.get("PODCACHE_PAGE_SIZE", "50")))
+    feed_limit: int = max(1, int(os.environ.get("PODCACHE_FEED_LIMIT", "2000")))
+
     # Server
     host: str = os.environ.get("PODCACHE_HOST", "127.0.0.1")
     port: int = int(os.environ.get("PODCACHE_PORT", "8000"))

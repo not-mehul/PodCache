@@ -201,5 +201,10 @@ label.ep:hover { background: var(--chip-bg-hover); }
 .footer b { font-style: normal; color: var(--text-muted); }
 .footer code { font-family: var(--mono); font-style: normal; font-size: .85em; color: var(--text-muted); }
 
+/* Pagination */
+.pagination { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 1.25rem; flex-wrap: wrap; }
+.page-info { font-family: var(--mono); font-size: .6875rem; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); }
+.btn-ghost.disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
+
 .back-link { margin-bottom: 1rem; }
 .hidden { display: none !important; }

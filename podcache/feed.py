@@ -11,6 +11,8 @@ from typing import Any
 
 import feedparser
 
+from .config import config
+
 
 def _enclosure_url(entry: Any) -> str:
     """Pull the audio media URL from an entry's enclosures / links."""
@@ -42,8 +44,15 @@ def _duration_seconds(entry: Any) -> int | None:
         return None
 
 
-def parse_feed(feed_url: str, limit: int = 50) -> dict[str, Any]:
-    """Return the show header plus a clean list of recent episodes."""
+def parse_feed(feed_url: str, limit: int | None = None) -> dict[str, Any]:
+    """Return the show header plus a clean list of episodes.
+
+    By default all episodes (up to the configured feed cap) are returned, so the
+    show page can paginate through the full back-catalogue rather than only the
+    most recent few.
+    """
+    if limit is None:
+        limit = config.feed_limit
     parsed = feedparser.parse(feed_url)
     show_image = ""
     if parsed.feed.get("image"):

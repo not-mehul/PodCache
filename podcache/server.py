@@ -68,14 +68,23 @@ def search(q: str = "") -> HTMLResponse:
 
 
 @app.get("/show", response_class=HTMLResponse)
-def show(feed_url: str = Query(..., alias="feed"), q: str = "") -> HTMLResponse:
+def show(
+    feed_url: str = Query(..., alias="feed"),
+    q: str = "",
+    page: int = 1,
+    queued: int = 0,
+) -> HTMLResponse:
     try:
         data = feed.parse_feed(feed_url)
     except Exception as exc:
         return _page(
             render.page_results([], q, downloads_count=manager.count(), error=f"Could not read feed: {exc}")
         )
-    return _page(render.page_show(data["show"], data["episodes"], q, downloads_count=manager.count()))
+    return _page(
+        render.page_show(
+            data["show"], data["episodes"], q, page=page, downloads_count=manager.count(), queued=queued
+        )
+    )
 
 
 @app.post("/download")
@@ -87,6 +96,7 @@ async def start_download(request: Request) -> RedirectResponse:
     body = (await request.body()).decode("utf-8")
     data = parse_qs(body, keep_blank_values=True)
     show_title = (data.get("show_title", ["Unknown Show"])[0] or "Unknown Show").strip()
+    return_to = data.get("return_to", [""])[0]
     episodes = []
     for raw in data.get("episode", []):
         try:
@@ -97,6 +107,13 @@ async def start_download(request: Request) -> RedirectResponse:
             continue
     if episodes:
         manager.enqueue({"title": show_title}, episodes)
+
+    # Return to the show page (so the user can keep paginating and selecting),
+    # carrying a queued count for the confirmation notice. Only honour a local
+    # /show path to avoid an open redirect.
+    if return_to.startswith("/show"):
+        sep = "&" if "?" in return_to else "?"
+        return RedirectResponse(url=f"{return_to}{sep}queued={len(episodes)}", status_code=303)
     return RedirectResponse(url="/downloads", status_code=303)
 
 

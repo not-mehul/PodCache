@@ -12,10 +12,11 @@ dedicated folder, original audio and tags intact.
    show's RSS feed, and list its episodes.
 2. **Select** — tick any number of episodes (or *Select all*).
 3. **Bulk download** — episodes are queued and downloaded **concurrently**
-   (configurable limit), with live per-item progress.
-4. **Stored locally** — files land in a dedicated downloads area, one
-   sub-folder per show. The original enclosure is saved as-is, so its ID3 tags
-   and cover art are preserved exactly as the publisher shipped them.
+   (configurable limit), with live per-item progress. Long back-catalogues are
+   **paginated**, so you can reach and download well beyond the latest 50.
+4. **Stored locally** — files land in a dedicated downloads area, **one
+   sub-folder per show**. The original enclosure is saved as-is, so its ID3
+   tags and cover art are preserved exactly as the publisher shipped them.
 
 ## Stack
 
@@ -53,6 +54,8 @@ live, and finished files are linked from there (and saved on disk).
 | :-- | :-- | :-- |
 | `PODCACHE_DOWNLOAD_DIR` | `downloads` | Where episodes are saved (absolute or relative) |
 | `PODCACHE_CONCURRENCY` | `3` | How many episodes download at once |
+| `PODCACHE_PAGE_SIZE` | `50` | Episodes shown per page |
+| `PODCACHE_FEED_LIMIT` | `2000` | Max episodes read from a feed |
 | `PODCASTINDEX_API_KEY` / `_SECRET` | — | PodcastIndex search (optional) |
 | `PODCACHE_HOST` / `PORT` | `127.0.0.1` / `8000` | Bind address |
 

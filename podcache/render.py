@@ -24,6 +24,7 @@ _ICON = {
     "moon": '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
     "sun": '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
     "arrow-left": '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+    "arrow-right": '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
     "inbox": '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
 }
 
@@ -224,10 +225,56 @@ def _episode_row(ep: dict[str, Any]) -> str:
     )
 
 
+def _show_url(feed_url: str, q: str, page: int) -> str:
+    params: dict[str, Any] = {"feed": feed_url}
+    if q:
+        params["q"] = q
+    if page > 1:
+        params["page"] = page
+    return "/show?" + urlencode(params)
+
+
+def _pagination(feed_url: str, q: str, page: int, pages: int, total: int) -> str:
+    if pages <= 1:
+        return ""
+    if page > 1:
+        prev = f'<a class="btn-ghost" href="{attr(_show_url(feed_url, q, page - 1))}">{icon("arrow-left", 13)} Previous</a>'
+    else:
+        prev = f'<span class="btn-ghost disabled" aria-disabled="true">{icon("arrow-left", 13)} Previous</span>'
+    if page < pages:
+        nxt = f'<a class="btn-ghost" href="{attr(_show_url(feed_url, q, page + 1))}">Next {icon("arrow-right", 13)}</a>'
+    else:
+        nxt = f'<span class="btn-ghost disabled" aria-disabled="true">Next {icon("arrow-right", 13)}</span>'
+    return (
+        f'<div class="pagination">{prev}'
+        f'<span class="page-info">Page {page} of {pages} · {total} episodes</span>{nxt}</div>'
+    )
+
+
 def page_show(
-    show: dict[str, Any], episodes: list[dict[str, Any]], q: str, downloads_count: int = 0
+    show: dict[str, Any],
+    episodes: list[dict[str, Any]],
+    q: str,
+    page: int = 1,
+    downloads_count: int = 0,
+    queued: int = 0,
 ) -> str:
+    feed_url = show.get("feed_url", "")
     back = "/search?" + urlencode({"q": q}) if q else "/"
+    page_size = config.page_size
+    total = len(episodes)
+    pages = max(1, (total + page_size - 1) // page_size)
+    page = min(max(1, page), pages)
+    start = (page - 1) * page_size
+    chunk = episodes[start : start + page_size]
+
+    notice = ""
+    if queued:
+        notice = (
+            f'<div class="notice"><b>{queued} episode{"s" if queued != 1 else ""} queued.</b> '
+            'They are downloading — <a href="/downloads">view Downloads</a>.</div>'
+        )
+
     if not episodes:
         inner = (
             '<div class="empty-state"><div class="ei">'
@@ -235,17 +282,21 @@ def page_show(
             + "</div><h3>No playable episodes</h3><p>This feed has no downloadable audio.</p></div>"
         )
     else:
-        rows = "".join(_episode_row(ep) for ep in episodes)
+        rows = "".join(_episode_row(ep) for ep in chunk)
+        pag = _pagination(feed_url, q, page, pages, total)
+        return_to = _show_url(feed_url, q, page)
         inner = f"""<form method="post" action="/download">
   <input type="hidden" name="show_title" value="{attr(show.get('title', 'Unknown Show'))}" />
+  <input type="hidden" name="return_to" value="{attr(return_to)}" />
   <div class="ep-toolbar">
-    <label class="check"><input type="checkbox" id="selectAll" /><span class="box">{icon('check', 12)}</span><span class="sel-label" id="selCount">Select all</span></label>
+    <label class="check"><input type="checkbox" id="selectAll" /><span class="box">{icon('check', 12)}</span><span class="sel-label" id="selCount">Select all on page</span></label>
     <button class="btn-primary" type="submit" id="downloadBtn">{icon('download', 14)} <span id="dlBtnLabel">Download selected</span></button>
   </div>
   <div class="ep-list">{rows}</div>
+  {pag}
 </form>"""
     body = f"""<div class="back-link"><a class="btn-ghost" href="{attr(back)}">{icon('arrow-left', 13)} Back to shows</a></div>
-<section class="section">
+{notice}<section class="section">
   <div class="section-head"><div class="lhs"><span class="marker">Episodes.</span><h2 class="section-title">{esc(show.get('title', 'Episodes'))}</h2></div></div>
   {inner}
 </section>"""

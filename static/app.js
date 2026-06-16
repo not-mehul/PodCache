@@ -44,7 +44,7 @@
       function refresh() {
         var n = cbs.filter(function (c) { return c.checked; }).length;
         if (btnLabel) btnLabel.textContent = n ? "Download " + n + " selected" : "Download selected";
-        if (selCount) selCount.textContent = n ? n + " selected" : "Select all";
+        if (selCount) selCount.textContent = n ? n + " selected" : "Select all on page";
         if (selectAll) selectAll.checked = n === cbs.length;
       }
       cbs.forEach(function (c) { c.addEventListener("change", refresh); });
