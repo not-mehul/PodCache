@@ -1,27 +1,21 @@
 # PodCache
 
-> Find a podcast, pick an episode, get it back without the ads.
+> Find a podcast, select episodes, and download them in bulk.
 
-PodCache removes sponsor reads from podcast episodes using a **text-first**
-approach. Rather than chasing unreliable signals like volume drops or jingles,
-it converts the audio to text, finds the ads *in the transcript*, and cuts the
-audio on those exact timestamps.
+PodCache is a local web app for **downloading podcast episodes** — search a
+show, tick the episodes you want, and they download concurrently into a
+dedicated folder, original audio and tags intact.
 
 ## How it works
 
 1. **Search & discovery** — query a public podcast database, retrieve the
-   show's RSS feed, and list the available episodes.
-2. **Audio ingestion** — download the selected episode's media file (`.mp3` /
-   `.m4a`) to a local folder.
-3. **Transcription** — run the audio through Whisper to produce a transcript
-   with an exact start/end timestamp for every sentence.
-4. **Ad detection** — feed the timestamped transcript to a small **local**
-   language model (no cloud, no API), which returns the segments that are
-   sponsor reads.
-5. **Audio splicing** — slice out the ad segments with FFmpeg and stitch the
-   remaining content back together (stream copy — no full re-encode).
-6. **Metadata restoration** — copy the ID3 tags and cover art from the original
-   onto the finished file so it looks right in any player.
+   show's RSS feed, and list its episodes.
+2. **Select** — tick any number of episodes (or *Select all*).
+3. **Bulk download** — episodes are queued and downloaded **concurrently**
+   (configurable limit), with live per-item progress.
+4. **Stored locally** — files land in a dedicated downloads area, one
+   sub-folder per show. The original enclosure is saved as-is, so its ID3 tags
+   and cover art are preserved exactly as the publisher shipped them.
 
 ## Stack
 
@@ -29,36 +23,19 @@ audio on those exact timestamps.
 | :-- | :-- |
 | Search | [PodcastIndex.org](https://podcastindex.org) (free key) · keyless iTunes Search fallback |
 | RSS parsing | `feedparser` |
-| Download | `httpx` (chunked streaming) |
-| Transcription | [`faster-whisper`](https://github.com/SYSTRAN/faster-whisper) (local, CPU or GPU) |
-| Ad detection | small local GGUF model via [`llama-cpp-python`](https://github.com/abetlen/llama-cpp-python) · offline heuristic fallback |
-| Splicing | FFmpeg |
-| Metadata | `mutagen` |
-| Web server / UI | FastAPI + a single-page UI (the *Editorial Dusk & Dawn* design) |
+| Download | `httpx` (chunked streaming) + a thread-pool queue for concurrency |
+| Web server / UI | FastAPI + a single-page UI (the *Editorial Dusk & Dawn* design), live progress over Server-Sent Events |
 
 ## Setup
 
 ```bash
-# 1. Install Python deps
 pip install -r requirements.txt
 
-# 2. Install FFmpeg (required for splicing)
-#    macOS:  brew install ffmpeg
-#    Debian: sudo apt install ffmpeg
-
-# 3. (Optional) configure for the best results
+# (optional) configure the download folder, concurrency, or search keys
 cp .env.example .env
-# edit .env — point PODCACHE_LLM_PATH at a .gguf you already have (fully
-# offline), or leave the defaults to fetch a small model once. PodcastIndex
-# keys give the richest search. All optional.
 ```
 
-Everything runs **locally** — there are no cloud APIs or keys in the detection
-path. The first run fetches the small ad-detection model once into `models/`
-(after which inference is entirely on-device); supply your own `.gguf` via
-`PODCACHE_LLM_PATH` for a fully air-gapped setup. If `llama-cpp-python` isn't
-installed, ad detection falls back to an offline phrase detector. Search falls
-back to the keyless iTunes Search API when no PodcastIndex keys are set.
+No API keys are required — search falls back to the keyless iTunes Search API.
 
 ## Run
 
@@ -66,48 +43,22 @@ back to the keyless iTunes Search API when no PodcastIndex keys are set.
 python run.py
 ```
 
-Then open **http://127.0.0.1:8000**. Search a show, click it to load its
-episodes, and pick one — PodCache streams live progress through each stage and
-hands you a download link to the ad-free file.
+Open **http://127.0.0.1:8000**. Search a show, click it, tick the episodes you
+want, and hit **Download** — the queue at the top shows each download's progress
+live, and finished files are linked from there (and saved on disk).
 
 ## Configuration
 
-All settings are environment variables (see `.env.example`):
-
 | Variable | Default | Purpose |
 | :-- | :-- | :-- |
-| `PODCACHE_LLM_PATH` | — | Path to a local `.gguf` (fully offline) |
-| `PODCACHE_LLM_REPO` / `_FILE` | `Qwen/Qwen2.5-1.5B-Instruct-GGUF` | Model fetched once if no path is set |
-| `PODCACHE_LLM_CTX` / `_THREADS` | `4096` / `auto` | Context window · CPU threads |
-| `PODCASTINDEX_API_KEY` / `_SECRET` | — | PodcastIndex search |
-| `PODCACHE_WHISPER_MODEL` | `base` | Whisper size (`tiny`…`large-v3`) |
-| `PODCACHE_WHISPER_COMPUTE` | `int8` | `int8` (CPU) / `float16` (GPU) |
-| `PODCACHE_WHISPER_DEVICE` | `auto` | `cpu` / `cuda` / `auto` |
-| `PODCACHE_DATA_DIR` | `data` | Where files are written |
+| `PODCACHE_DOWNLOAD_DIR` | `downloads` | Where episodes are saved (absolute or relative) |
+| `PODCACHE_CONCURRENCY` | `3` | How many episodes download at once |
+| `PODCASTINDEX_API_KEY` / `_SECRET` | — | PodcastIndex search (optional) |
 | `PODCACHE_HOST` / `PORT` | `127.0.0.1` / `8000` | Bind address |
-
-## GPU transcription (optional, much faster)
-
-`device=auto` uses your NVIDIA GPU automatically — but faster-whisper needs the
-CUDA 12 runtime (cuBLAS + cuDNN), which ships separately from the GPU driver.
-Install the runtime via pip and set the compute type to `float16`:
-
-```bash
-pip install nvidia-cublas-cu12 nvidia-cudnn-cu12
-# in .env:
-#   PODCACHE_WHISPER_COMPUTE=float16
-#   PODCACHE_WHISPER_MODEL=small   # (or larger — the GPU can handle it)
-```
-
-PodCache registers those wheel DLL directories automatically on Windows, so no
-manual `PATH` editing is needed. If CUDA still can't load, transcription falls
-back to CPU and prints a notice in the server console (newer GPUs may need a
-recent `ctranslate2`/CUDA — `pip install -U ctranslate2`).
 
 ## Notes
 
-- **Fully local.** The server binds to `127.0.0.1`, all files stay in a local
-  folder, and both transcription and ad detection run on-device — nothing about
-  the audio or its transcript is sent to any external service.
-- The first run downloads the Whisper and ad-detection model weights once;
-  subsequent runs reuse the cache.
+- **Local-first.** The server binds to `127.0.0.1`; downloads stay in your
+  chosen folder.
+- Re-downloading an episode you already have is skipped automatically (the
+  existing file on disk is reused).

@@ -1,21 +1,8 @@
-# PodCache — podcast ad-removal tool
+# PodCache — bulk podcast downloader
 # Core web server
 fastapi>=0.110
 uvicorn[standard]>=0.29
 
-# HTTP + feed parsing
+# HTTP downloads + feed parsing
 httpx>=0.27
 feedparser>=6.0
-
-# Transcription (local Whisper). CPU works; GPU optional.
-faster-whisper>=1.0
-
-# Ad detection via a small, local GGUF instruct model (runs on CPU). Falls back
-# to an offline heuristic detector when no model is available.
-llama-cpp-python>=0.2.80
-# One-time fetch of the model weights into models/ (skip if you supply your own
-# .gguf via PODCACHE_LLM_PATH).
-huggingface-hub>=0.23
-
-# ID3 / cover-art metadata
-mutagen>=1.47

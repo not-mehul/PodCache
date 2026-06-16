@@ -22,9 +22,9 @@ from podcache.config import config
 
 def main() -> None:
     print(f"PodCache → http://{config.host}:{config.port}")
-    print(f"  search:        {config.search_provider}")
-    print(f"  ad detection:  {config.detector}")
-    print(f"  transcription: faster-whisper ({config.whisper_model})")
+    print(f"  search:      {config.search_provider}")
+    print(f"  concurrency: {config.concurrency} simultaneous downloads")
+    print(f"  downloads →  {config.download_dir}")
     uvicorn.run("podcache.server:app", host=config.host, port=config.port)
 
 

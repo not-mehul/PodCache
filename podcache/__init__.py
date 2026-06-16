@@ -1,8 +1,7 @@
-"""PodCache — search podcasts, transcribe episodes, and splice out the ads.
+"""PodCache — search podcasts and download episodes in bulk.
 
-The pipeline is deliberately text-first: rather than guessing at volume drops or
-jingles, PodCache transcribes the audio, has a language model locate sponsor
-reads in the transcript, and cuts the audio on those timestamps.
+Search a public podcast database, pick a show, select the episodes you want,
+and download them concurrently into a dedicated local folder.
 """
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"

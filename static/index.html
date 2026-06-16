@@ -4,72 +4,49 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#0f0d0b" />
-<title>PodCache — ad-free podcasts</title>
+<title>PodCache — bulk podcast downloader</title>
 <style>
 /* ─── Theming tokens: Editorial Dusk (default) & Dawn ───────────────────── */
 :root {
   color-scheme: dark;
-
   --bg-grad-top: #14110e; --bg-grad-mid: #0f0d0b; --bg-grad-bot: #0c0a08;
-
   --text-strong: #f5f5f4; --text-heading: #f5ecd9; --text-body: #e8e1d5;
   --text-muted: #d6d3d1; --text-dim: #a8a29e; --text-faint: #78716c;
-
   --accent-amber: #d4a574; --accent-bright: #fcd34d; --accent-bright-hover: #fef3c7;
   --accent-sage: #9fb3a0; --on-accent: #1c1917; --danger: #f87171;
-
   --accent-amber-rgb: 212, 165, 116; --accent-sage-rgb: 159, 179, 160; --cream-rgb: 245, 236, 217;
-
-  --border: #44403c;
-  --border-strong: rgba(68,64,60,0.6); --border-soft: rgba(68,64,60,0.5); --border-faint: rgba(68,64,60,0.4);
-
+  --border: #44403c; --border-strong: rgba(68,64,60,0.6); --border-soft: rgba(68,64,60,0.5); --border-faint: rgba(68,64,60,0.4);
   --panel-bg: rgba(20,17,14,0.6); --panel-bg-faint: rgba(20,17,14,0.4);
   --input-bg: rgba(12,10,8,0.8); --chip-bg: rgba(28,25,23,0.6); --chip-bg-hover: rgba(28,25,23,0.85);
   --hover-bg: rgba(41,37,36,0.4); --disabled-bg: rgba(41,37,36,0.6);
   --modal-bg: rgba(20,17,14,0.96); --modal-backdrop: rgba(12,10,8,0.82);
-
   --focus-ring: rgba(168,162,158,0.5); --shadow-rgb: 0,0,0; --shadow-strength: 1;
   --error-bg: rgba(69,10,10,0.2); --notice-bg: rgba(252,211,77,0.08);
-
   --serif: "Fraunces","Iowan Old Style","Apple Garamond",Baskerville,Georgia,"Times New Roman",serif;
   --sans: "IBM Plex Sans",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   --mono: "JetBrains Mono",ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
 }
 [data-theme="light"] {
   color-scheme: light;
-
   --bg-grad-top: #f3ece0; --bg-grad-mid: #efe6d8; --bg-grad-bot: #e9dfce;
-
   --text-strong: #1c1917; --text-heading: #211d17; --text-body: #3a342c;
   --text-muted: #4a443b; --text-dim: #6b6358; --text-faint: #938a7c;
-
   --accent-amber: #b07d3e; --accent-bright: #e0a92a; --accent-bright-hover: #c89320;
   --accent-sage: #6f8770; --on-accent: #1c1917; --danger: #c0392b;
-
   --accent-amber-rgb: 176, 125, 62; --accent-sage-rgb: 111, 135, 112; --cream-rgb: 120, 95, 50;
-
-  --border: #cdbfa6;
-  --border-strong: rgba(120,105,80,0.45); --border-soft: rgba(120,105,80,0.32); --border-faint: rgba(120,105,80,0.22);
-
+  --border: #cdbfa6; --border-strong: rgba(120,105,80,0.45); --border-soft: rgba(120,105,80,0.32); --border-faint: rgba(120,105,80,0.22);
   --panel-bg: rgba(255,251,243,0.7); --panel-bg-faint: rgba(255,251,243,0.45);
   --input-bg: rgba(255,252,245,0.9); --chip-bg: rgba(245,238,226,0.85); --chip-bg-hover: rgba(238,229,213,0.95);
   --hover-bg: rgba(205,191,166,0.3); --disabled-bg: rgba(220,210,192,0.6);
   --modal-bg: rgba(252,248,240,0.98); --modal-backdrop: rgba(60,52,40,0.45);
-
   --focus-ring: rgba(120,105,80,0.5); --shadow-rgb: 90,72,44; --shadow-strength: 0.4;
   --error-bg: rgba(192,57,43,0.12); --notice-bg: rgba(224,169,42,0.12);
 }
-
 * { box-sizing: border-box; }
-html, body {
-  margin: 0; min-height: 100%;
+html, body { margin: 0; min-height: 100%;
   background: linear-gradient(180deg, var(--bg-grad-top) 0%, var(--bg-grad-mid) 50%, var(--bg-grad-bot) 100%);
-  background-attachment: fixed;
-  color: var(--text-body); font-family: var(--sans);
-  -webkit-tap-highlight-color: transparent;
-}
+  background-attachment: fixed; color: var(--text-body); font-family: var(--sans); -webkit-tap-highlight-color: transparent; }
 
-/* ─── Atmosphere ────────────────────────────────────────────────────────── */
 .glow-layer { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
 .glow { position: absolute; border-radius: 50%; }
 .glow-1 { top:-20%; right:-15%; width:900px; height:900px; filter: blur(40px);
@@ -79,70 +56,55 @@ html, body {
 .glow-3 { top:40%; left:30%; width:600px; height:600px; filter: blur(60px);
   background: radial-gradient(circle, rgba(var(--cream-rgb),0.03) 0%, transparent 60%); }
 
-.app-shell {
-  position: relative; z-index: 1; max-width: 880px; margin: 0 auto;
-  padding: 4rem 1.5rem 6rem;
-  padding-left: max(1.5rem, env(safe-area-inset-left));
-  padding-right: max(1.5rem, env(safe-area-inset-right));
-  padding-bottom: max(6rem, calc(env(safe-area-inset-bottom) + 2rem));
-}
+.app-shell { position: relative; z-index: 1; max-width: 880px; margin: 0 auto; padding: 4rem 1.5rem 6rem;
+  padding-left: max(1.5rem, env(safe-area-inset-left)); padding-right: max(1.5rem, env(safe-area-inset-right));
+  padding-bottom: max(6rem, calc(env(safe-area-inset-bottom) + 2rem)); }
 @media (max-width: 640px) { .app-shell { padding: 1.75rem 1rem 5rem; } }
 
-/* ─── Masthead ──────────────────────────────────────────────────────────── */
 .masthead { margin-bottom: 3rem; }
 .topline { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.75rem; }
 .eyebrow { font-family: var(--mono); font-size: 0.6875rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--text-dim); }
 .page-title { font-family: var(--serif); font-weight: 400; font-size: 4rem; line-height: 0.95; letter-spacing: -0.02em; color: var(--text-heading); margin: 0 0 1rem; }
 .page-title em { font-style: italic; color: var(--accent-amber); }
 @media (max-width: 640px) { .page-title { font-size: 2.5rem; } }
-.lede { font-size: 1.125rem; color: var(--text-muted); max-width: 46ch; line-height: 1.6; margin: 0 0 1.25rem; }
-.status-bar { display: flex; flex-wrap: wrap; gap: 0; align-items: center; font-family: var(--mono); font-size: 0.6875rem; letter-spacing: 0.05em; color: var(--text-dim); }
-.status-bar .item { padding: 0 0.85rem; }
-.status-bar .item:first-child { padding-left: 0; }
+.lede { font-size: 1.125rem; color: var(--text-muted); max-width: 48ch; line-height: 1.6; margin: 0 0 1.25rem; }
+.status-bar { display: flex; flex-wrap: wrap; align-items: center; font-family: var(--mono); font-size: 0.6875rem; letter-spacing: 0.05em; color: var(--text-dim); }
+.status-bar .item { padding: 0 0.85rem; } .status-bar .item:first-child { padding-left: 0; }
 .status-bar .sep { width: 1px; height: 0.75em; background: var(--border-soft); }
 .status-bar b { color: var(--accent-amber); font-weight: 500; }
 
-/* ─── Section heads / markers ───────────────────────────────────────────── */
 .section { margin-bottom: 2.75rem; }
-.section-head { margin-bottom: 1.25rem; }
+.section-head { margin-bottom: 1.25rem; display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.section-head .lhs { display: flex; align-items: baseline; }
 .marker { font-family: var(--serif); font-style: italic; font-size: 1.25rem; color: var(--text-muted); margin-right: 0.5rem; }
 .section-title { font-family: var(--serif); font-style: italic; font-size: 1.875rem; font-weight: 400; color: var(--text-heading); display: inline; }
 
-/* ─── Panels / inputs ───────────────────────────────────────────────────── */
 .panel { background: var(--panel-bg); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   border: 1px solid var(--border-soft); border-radius: 2px; padding: 1.5rem; }
 .search-row { display: flex; gap: 0.75rem; }
 @media (max-width: 560px) { .search-row { flex-direction: column; } }
-input[type="text"], input[type="search"] {
-  flex: 1; -webkit-appearance: none; appearance: none;
-  background: var(--input-bg); border: 1px solid var(--border); border-radius: 2px;
-  color: var(--text-strong); font-family: var(--sans); font-size: 0.95rem; padding: 0.7rem 0.9rem; }
+input[type="text"], input[type="search"] { flex: 1; -webkit-appearance: none; appearance: none;
+  background: var(--input-bg); border: 1px solid var(--border); border-radius: 2px; color: var(--text-strong);
+  font-family: var(--sans); font-size: 0.95rem; padding: 0.7rem 0.9rem; }
 input::placeholder { color: var(--text-faint); font-style: italic; }
 input:focus { outline: none; border-color: var(--text-dim); }
 
-/* ─── Buttons ───────────────────────────────────────────────────────────── */
-.btn-primary {
-  background: var(--accent-bright); color: var(--on-accent); border: none; cursor: pointer;
-  box-shadow: 0 0 32px rgba(var(--accent-amber-rgb),0.25);
-  text-transform: uppercase; letter-spacing: 0.15em; font-weight: 500; font-size: 0.8125rem;
-  padding: 0.7rem 1.4rem; border-radius: 2px; transition: background .15s, box-shadow .15s;
-  display: inline-flex; align-items: center; gap: 0.5rem; }
+.btn-primary { background: var(--accent-bright); color: var(--on-accent); border: none; cursor: pointer;
+  box-shadow: 0 0 32px rgba(var(--accent-amber-rgb),0.25); text-transform: uppercase; letter-spacing: 0.15em;
+  font-weight: 500; font-size: 0.8125rem; padding: 0.7rem 1.4rem; border-radius: 2px;
+  transition: background .15s, box-shadow .15s; display: inline-flex; align-items: center; gap: 0.5rem; white-space: nowrap; }
 .btn-primary:hover { background: var(--accent-bright-hover); box-shadow: 0 0 48px rgba(var(--accent-amber-rgb),0.35); }
 .btn-primary:disabled { background: var(--disabled-bg); color: var(--text-faint); box-shadow: none; cursor: not-allowed; }
-.btn-ghost {
-  background: transparent; border: 1px solid var(--border); color: var(--text-dim); cursor: pointer;
-  text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.75rem; font-weight: 500;
-  padding: 0.55rem 1rem; border-radius: 2px; transition: color .15s, background .15s, border-color .15s;
-  display: inline-flex; align-items: center; gap: 0.45rem; }
+.btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-dim); cursor: pointer;
+  text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.75rem; font-weight: 500; padding: 0.55rem 1rem;
+  border-radius: 2px; transition: color .15s, background .15s, border-color .15s; display: inline-flex; align-items: center; gap: 0.45rem; }
 .btn-ghost:hover { color: var(--text-heading); background: var(--hover-bg); }
 
-/* ─── Cards (shows) ─────────────────────────────────────────────────────── */
 .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 1rem; }
 @media (max-width: 480px) { .card-grid { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); } }
-.card {
-  background: var(--panel-bg); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-  border: 1px solid var(--border-faint); border-radius: 2px; overflow: hidden; text-align: left;
-  cursor: pointer; padding: 0; transition: border-color .15s, box-shadow .15s; display: flex; flex-direction: column; }
+.card { background: var(--panel-bg); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  border: 1px solid var(--border-faint); border-radius: 2px; overflow: hidden; text-align: left; cursor: pointer;
+  padding: 0; transition: border-color .15s, box-shadow .15s; display: flex; flex-direction: column; }
 .card:hover { border-color: rgba(var(--accent-amber-rgb),0.6);
   box-shadow: 0 8px 24px rgba(var(--shadow-rgb), calc(0.25*var(--shadow-strength))), 0 0 0 1px rgba(var(--accent-amber-rgb),0.12); }
 .card .thumb { aspect-ratio: 1/1; background: var(--input-bg); display: block; width: 100%; object-fit: cover; }
@@ -150,60 +112,58 @@ input:focus { outline: none; border-color: var(--text-dim); }
 .card .body { padding: 0.75rem 0.85rem 0.9rem; display: flex; flex-direction: column; gap: 0.3rem; }
 .card .ctitle { font-family: var(--serif); font-size: 1rem; line-height: 1.25; color: var(--text-heading);
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.card .cauthor { font-family: var(--serif); font-style: italic; font-size: 0.8125rem; color: var(--text-dim);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card .cauthor { font-family: var(--serif); font-style: italic; font-size: 0.8125rem; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card .cmeta { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-faint); }
 
-/* ─── Episode rows ──────────────────────────────────────────────────────── */
-.ep-list { display: flex; flex-direction: column; gap: 1px; background: var(--border-faint);
-  border: 1px solid var(--border-soft); border-radius: 2px; }
-.ep {
-  display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: center;
-  background: var(--panel-bg); padding: 0.9rem 1.1rem; cursor: pointer; border: none; text-align: left;
-  transition: background .15s; width: 100%; }
-.ep:hover { background: var(--chip-bg-hover); }
+/* Custom checkbox (§8.7) */
+.check { display: flex; align-items: center; gap: 0.6rem; cursor: pointer; user-select: none; }
+.check input { position: absolute; opacity: 0; width: 0; height: 0; }
+.check .box { width: 16px; height: 16px; border: 1px solid var(--border); border-radius: 2px; background: var(--input-bg);
+  display: inline-flex; align-items: center; justify-content: center; transition: background .15s, border-color .15s; flex-shrink: 0; }
+.check .box svg { opacity: 0; color: var(--on-accent); }
+.check input:checked + .box { background: var(--accent-bright); border-color: var(--accent-bright); }
+.check input:checked + .box svg { opacity: 1; }
+.check:hover .box { border-color: var(--text-dim); }
+.check input:focus-visible + .box { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+/* Episode multi-select */
+.ep-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.ep-toolbar .sel-label { font-family: var(--mono); font-size: 0.6875rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-dim); }
+.ep-list { display: flex; flex-direction: column; gap: 1px; background: var(--border-faint); border: 1px solid var(--border-soft); border-radius: 2px; }
+label.ep { display: grid; grid-template-columns: auto 1fr; gap: 0.85rem; align-items: center; background: var(--panel-bg);
+  padding: 0.9rem 1.1rem; cursor: pointer; transition: background .15s; }
+label.ep:hover { background: var(--chip-bg-hover); }
 .ep .etitle { font-family: var(--serif); font-size: 1.0625rem; color: var(--text-heading); line-height: 1.3; }
-.ep .emeta { font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.08em; color: var(--text-dim); margin-top: 0.3rem; display: flex; gap: 0; align-items: center; flex-wrap: wrap; }
+.ep .emeta { font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.08em; color: var(--text-dim); margin-top: 0.3rem; display: flex; align-items: center; flex-wrap: wrap; }
 .ep .emeta .dot { padding: 0 0.5rem; }
-.ep .epick { font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-amber); white-space: nowrap; }
 
-/* ─── Lifecycle (processing) ────────────────────────────────────────────── */
-.now-playing { display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem; }
-.now-playing img, .now-playing .np-fallback { width: 64px; height: 64px; border-radius: 2px; object-fit: cover; background: var(--input-bg); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--text-faint); }
-.now-playing .np-title { font-family: var(--serif); font-size: 1.375rem; color: var(--text-heading); line-height: 1.2; }
-.now-playing .np-show { font-family: var(--serif); font-style: italic; color: var(--text-dim); font-size: 0.9375rem; }
-
-.lifecycle { display: flex; flex-direction: column; gap: 0.65rem; }
-.qitem {
-  background: var(--panel-bg); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-  border: 1px solid var(--border-soft); border-left: 3px solid var(--text-faint);
-  border-radius: 2px; padding: 0.85rem 1rem; transition: border-color .2s; }
-.qitem.active { border-left-color: var(--accent-amber); }
-.qitem.completed { border-left-color: var(--accent-sage); }
+/* Downloads queue (lifecycle rows §10) */
+.dl-list { display: flex; flex-direction: column; gap: 0.65rem; }
+.qitem { background: var(--panel-bg); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  border: 1px solid var(--border-soft); border-left: 3px solid var(--text-faint); border-radius: 2px; padding: 0.85rem 1rem; transition: border-color .2s; }
+.qitem.downloading { border-left-color: var(--accent-amber); }
+.qitem.completed, .qitem.skipped { border-left-color: var(--accent-sage); }
 .qitem.failed { border-left-color: var(--danger); }
 .qrow { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
-.qname { font-family: var(--serif); font-size: 1.0625rem; color: var(--text-heading); }
-.qstatus { font-family: var(--serif); font-style: italic; font-size: 0.8125rem; color: var(--text-faint); }
-.qitem.active .qstatus { color: var(--accent-bright); }
-.qitem.completed .qstatus { color: var(--accent-sage); }
+.qname { font-family: var(--serif); font-size: 1.0625rem; color: var(--text-heading); line-height: 1.3;
+  display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.qstatus { font-family: var(--serif); font-style: italic; font-size: 0.8125rem; color: var(--text-faint); white-space: nowrap; }
+.qitem.downloading .qstatus { color: var(--accent-bright); }
+.qitem.completed .qstatus, .qitem.skipped .qstatus { color: var(--accent-sage); }
 .qitem.failed .qstatus { color: var(--danger); }
-.qmsg { font-family: var(--mono); font-size: 0.6875rem; letter-spacing: 0.04em; color: var(--text-dim); margin-top: 0.45rem; min-height: 1em; }
+.qmeta { font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.06em; color: var(--text-dim); margin-top: 0.4rem;
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.qmeta .show { color: var(--text-faint); }
+.qmeta a { color: var(--accent-amber); text-decoration: none; }
+.qmeta a:hover { color: var(--accent-bright); }
 .progress { height: 4px; background: var(--border-faint); border-radius: 1px; overflow: hidden; margin-top: 0.6rem; }
 .progress > .bar { height: 100%; width: 0%; background: var(--accent-bright); transition: width .25s linear; }
-.qitem.completed .progress > .bar { background: var(--accent-sage); }
+.qitem.completed .progress > .bar, .qitem.skipped .progress > .bar { background: var(--accent-sage); }
 .qitem.failed .progress > .bar { background: var(--danger); }
 .progress.indeterminate > .bar { width: 40%; background: linear-gradient(90deg, transparent 0%, var(--accent-bright) 50%, transparent 100%); animation: sweep 1.4s ease-in-out infinite; transition: none; }
 @keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(350%); } }
 
-/* ─── Ads removed ───────────────────────────────────────────────────────── */
-.ads-panel { margin-top: 1.5rem; }
-.ad-row { display: flex; gap: 0.75rem; align-items: baseline; padding: 0.6rem 0; border-top: 1px solid var(--border-faint); }
-.ad-row:first-child { border-top: none; }
-.ad-time { font-family: var(--mono); font-size: 0.75rem; color: var(--accent-amber); white-space: nowrap; }
-.ad-reason { font-family: var(--serif); font-style: italic; color: var(--text-dim); font-size: 0.9375rem; }
-
-/* ─── Feedback ──────────────────────────────────────────────────────────── */
-.empty-state { text-align: center; padding: 4rem 2rem; border: 1px dashed var(--border-soft); border-radius: 2px; }
+.empty-state { text-align: center; padding: 3.5rem 2rem; border: 1px dashed var(--border-soft); border-radius: 2px; }
 .empty-state h3 { font-family: var(--serif); font-style: italic; color: var(--text-heading); font-weight: 400; font-size: 1.375rem; margin: 1rem 0 0.4rem; }
 .empty-state p { font-family: var(--serif); font-style: italic; color: var(--text-dim); margin: 0; }
 .empty-state .ei { color: var(--text-faint); }
@@ -211,16 +171,11 @@ input:focus { outline: none; border-color: var(--text-dim); }
 .loading-row::before { content: ""; width: 12px; height: 12px; border: 1.5px solid var(--accent-amber); border-top-color: transparent; border-radius: 50%; animation: spin .75s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .msg-error { background: var(--error-bg); border: 1px solid rgba(var(--accent-amber-rgb),0.2); border-left: 3px solid var(--danger); color: var(--danger); padding: 0.9rem 1.1rem; border-radius: 2px; font-size: 0.9rem; }
-.notice { background: var(--notice-bg); border: 1px solid rgba(var(--accent-amber-rgb),0.25); border-radius: 2px; padding: 0.9rem 1.1rem; color: var(--text-muted); font-size: 0.85rem; }
+.notice { background: var(--notice-bg); border: 1px solid rgba(var(--accent-amber-rgb),0.25); border-radius: 2px; padding: 0.75rem 1rem; color: var(--text-muted); font-size: 0.8rem; font-family: var(--mono); letter-spacing: 0.03em; }
 .notice b { color: var(--accent-bright); }
 
-.done-actions { margin-top: 1.5rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
-
-/* ─── Theme toggle ──────────────────────────────────────────────────────── */
-.theme-toggle { position: relative; width: 60px; height: 30px; border-radius: 2px; background: var(--input-bg);
-  border: 1px solid var(--border); cursor: pointer; flex-shrink: 0; padding: 0; }
-.theme-toggle .knob { position: absolute; top: 2px; left: 2px; width: 24px; height: 24px; border-radius: 2px;
-  background: var(--accent-amber); transition: transform .22s cubic-bezier(.4,0,.2,1); display: flex; align-items: center; justify-content: center; color: var(--on-accent); }
+.theme-toggle { position: relative; width: 60px; height: 30px; border-radius: 2px; background: var(--input-bg); border: 1px solid var(--border); cursor: pointer; flex-shrink: 0; padding: 0; }
+.theme-toggle .knob { position: absolute; top: 2px; left: 2px; width: 24px; height: 24px; border-radius: 2px; background: var(--accent-amber); transition: transform .22s cubic-bezier(.4,0,.2,1); display: flex; align-items: center; justify-content: center; color: var(--on-accent); }
 [data-theme="light"] .theme-toggle .knob { transform: translateX(30px); }
 .theme-toggle .ghost-icon { position: absolute; top: 50%; transform: translateY(-50%); color: var(--text-faint); display: flex; }
 .theme-toggle .ghost-moon { left: 7px; } .theme-toggle .ghost-sun { right: 7px; }
@@ -228,323 +183,239 @@ input:focus { outline: none; border-color: var(--text-dim); }
 [data-theme="light"] .theme-toggle .ghost-moon { opacity: 1; }
 
 .hidden { display: none !important; }
-
-/* ─── Footer ────────────────────────────────────────────────────────────── */
 .footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--border-soft); font-family: var(--serif); font-style: italic; font-size: 0.8125rem; line-height: 1.7; color: var(--text-dim); }
-.footer b { font-style: normal; font-family: var(--serif); color: var(--text-muted); }
+.footer b { font-style: normal; color: var(--text-muted); }
+.footer code { font-family: var(--mono); font-style: normal; font-size: 0.85em; color: var(--text-muted); }
 </style>
 </head>
 <body>
-<div class="glow-layer" aria-hidden="true">
-  <div class="glow glow-1"></div><div class="glow glow-2"></div><div class="glow glow-3"></div>
-</div>
+<div class="glow-layer" aria-hidden="true"><div class="glow glow-1"></div><div class="glow glow-2"></div><div class="glow glow-3"></div></div>
 
 <main class="app-shell">
   <header class="masthead">
     <div class="topline">
-      <span class="eyebrow">Text-first ad removal</span>
+      <span class="eyebrow">Bulk podcast downloader</span>
       <button id="themeToggle" class="theme-toggle" role="switch" aria-checked="false" aria-label="Toggle theme">
-        <span class="ghost-icon ghost-moon"></span>
-        <span class="ghost-icon ghost-sun"></span>
-        <span class="knob"></span>
+        <span class="ghost-icon ghost-moon"></span><span class="ghost-icon ghost-sun"></span><span class="knob"></span>
       </button>
     </div>
     <h1 class="page-title">Pod<em>Cache</em></h1>
-    <p class="lede">Find a show, pick an episode, and get it back without the sponsor reads. PodCache transcribes the audio, locates the ads in the text, and cuts the file on those timestamps.</p>
+    <p class="lede">Find a show, select the episodes you want, and download them in bulk. Several download at once, straight into a dedicated folder.</p>
     <div class="status-bar" id="statusBar"></div>
   </header>
 
   <!-- Search -->
   <section class="section" id="searchSection">
-    <div class="section-head"><span class="marker">Search.</span><h2 class="section-title">Find a podcast</h2></div>
+    <div class="section-head"><div class="lhs"><span class="marker">Search.</span><h2 class="section-title">Find a podcast</h2></div></div>
     <div class="panel">
       <form class="search-row" id="searchForm">
-        <input type="search" id="searchInput" placeholder="Show name  ·  e.g. Reply All, Lex Fridman" autocomplete="off" />
-        <button class="btn-primary" type="submit" id="searchBtn"><span class="btn-icon" id="searchIcon"></span>Search</button>
+        <input type="search" id="searchInput" placeholder="Show name  ·  e.g. Darknet Diaries, 99% Invisible" autocomplete="off" />
+        <button class="btn-primary" type="submit"><span id="searchIcon"></span>Search</button>
       </form>
     </div>
   </section>
 
+  <!-- Downloads queue (persistent once populated) -->
+  <section class="section hidden" id="downloadsSection">
+    <div class="section-head">
+      <div class="lhs"><span class="marker">Downloads.</span><h2 class="section-title" id="downloadsTitle">Queue</h2></div>
+      <button class="btn-ghost" id="clearBtn">Clear finished</button>
+    </div>
+    <div class="dl-list" id="dlList"></div>
+  </section>
+
   <!-- Results -->
   <section class="section hidden" id="resultsSection">
-    <div class="section-head"><span class="marker">Candidates.</span><h2 class="section-title" id="resultsTitle">Shows</h2></div>
+    <div class="section-head"><div class="lhs"><span class="marker">Candidates.</span><h2 class="section-title" id="resultsTitle">Shows</h2></div></div>
     <div id="resultsBody"></div>
   </section>
 
   <!-- Episodes -->
   <section class="section hidden" id="episodesSection">
-    <div class="section-head">
-      <span class="marker">Episodes.</span><h2 class="section-title" id="episodesTitle">Pick an episode</h2>
-    </div>
+    <div class="section-head"><div class="lhs"><span class="marker">Episodes.</span><h2 class="section-title" id="episodesTitle">Select episodes</h2></div></div>
     <div style="margin-bottom:1rem"><button class="btn-ghost" id="backToResults">← Back to shows</button></div>
+    <div class="ep-toolbar">
+      <label class="check"><input type="checkbox" id="selectAll" /><span class="box" id="selectAllBox"></span><span class="sel-label" id="selCount">Select all</span></label>
+      <button class="btn-primary" id="downloadBtn" disabled><span id="dlIcon"></span><span id="dlBtnLabel">Download selected</span></button>
+    </div>
     <div id="episodesBody"></div>
   </section>
 
-  <!-- Processing -->
-  <section class="section hidden" id="processSection">
-    <div class="section-head"><span class="marker">Cut.</span><h2 class="section-title">Removing the ads</h2></div>
-    <div class="panel">
-      <div class="now-playing" id="nowPlaying"></div>
-      <div class="lifecycle" id="lifecycle"></div>
-      <div id="processFeedback"></div>
-    </div>
-  </section>
-
   <footer class="footer">
-    <p><b>Algorithm.</b> Volume drops and jingles are unreliable, so PodCache never guesses at the audio. It transcribes every sentence with Whisper, asks a language model which sentences are sponsor reads, and cuts on those timestamps.</p>
-    <p><b>Engine.</b> faster-whisper transcribes; <span id="footDetector">a language model</span> finds the ads; ffmpeg stream-copies and stitches; mutagen restores the cover art and tags. <b>Privacy.</b> The server binds to 127.0.0.1 and downloads live in a local folder.</p>
+    <p><b>How.</b> PodCache reads a show's RSS feed and downloads each episode's original audio enclosure as-is — tags and cover art intact, exactly as the publisher shipped it.</p>
+    <p><b>Where.</b> Files land in <code id="footDir">./downloads</code>, one folder per show. <b>Concurrency.</b> Up to <span id="footConc">3</span> download at once. <b>Privacy.</b> The server binds to <code>127.0.0.1</code>.</p>
   </footer>
 </main>
 
 <script>
-// ─── Icon helper (Lucide paths, MIT) ──────────────────────────────────────
 const icon = (paths, size = 16, stroke = 2) =>
   `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${stroke}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 const I = {
   search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
   download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
-  mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/>',
+  podcast: '<path d="M16.85 18.58a9 9 0 1 0-9.7 0"/><path d="M8 14a5 5 0 1 1 8 0"/><circle cx="12" cy="11" r="1"/><path d="M13 17a1 1 0 1 0-2 0l.5 4.5a.5.5 0 1 0 1 0Z"/>',
+  check: '<path d="m5 12 5 5L20 7"/>',
   moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
-  podcast: '<path d="M16.85 18.58a9 9 0 1 0-9.7 0"/><path d="M8 14a5 5 0 1 1 8 0"/><circle cx="12" cy="11" r="1"/><path d="M13 17a1 1 0 1 0-2 0l.5 4.5a.5.5 0 1 0 1 0Z"/>',
 };
 
-// ─── Theme ────────────────────────────────────────────────────────────────
+// Theme
 const themeMeta = document.querySelector('meta[name="theme-color"]');
 function applyTheme(mode) {
-  const toggle = document.getElementById('themeToggle');
-  if (mode === 'light') { document.documentElement.setAttribute('data-theme', 'light'); toggle.setAttribute('aria-checked', 'true'); themeMeta.setAttribute('content', '#efe6d8'); }
-  else { document.documentElement.removeAttribute('data-theme'); toggle.setAttribute('aria-checked', 'false'); themeMeta.setAttribute('content', '#0f0d0b'); }
+  const t = document.getElementById('themeToggle');
+  if (mode === 'light') { document.documentElement.setAttribute('data-theme','light'); t.setAttribute('aria-checked','true'); themeMeta.setAttribute('content','#efe6d8'); }
+  else { document.documentElement.removeAttribute('data-theme'); t.setAttribute('aria-checked','false'); themeMeta.setAttribute('content','#0f0d0b'); }
 }
-(function initTheme() {
-  const stored = localStorage.getItem('theme');
-  const prefersLight = matchMedia('(prefers-color-scheme: light)').matches;
-  applyTheme(stored || (prefersLight ? 'light' : 'dark'));
-})();
+(function(){ const s=localStorage.getItem('theme'); const pl=matchMedia('(prefers-color-scheme: light)').matches; applyTheme(s||(pl?'light':'dark')); })();
 document.getElementById('themeToggle').addEventListener('click', () => {
-  const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+  const next = document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';
   localStorage.setItem('theme', next); applyTheme(next);
 });
 document.querySelector('.ghost-moon').innerHTML = icon(I.moon, 13);
 document.querySelector('.ghost-sun').innerHTML = icon(I.sun, 13);
 document.querySelector('.theme-toggle .knob').innerHTML = icon(I.moon, 13);
 document.getElementById('searchIcon').innerHTML = icon(I.search, 14);
+document.getElementById('dlIcon').innerHTML = icon(I.download, 14);
+document.getElementById('selectAllBox').innerHTML = icon(I.check, 12);
 
-// ─── Helpers ───────────────────────────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
-function show(id) { $(id).classList.remove('hidden'); }
-function hide(id) { $(id).classList.add('hidden'); }
-function clock(s) {
-  s = Math.max(0, Math.round(s));
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
-  const mm = String(m).padStart(h ? 2 : 1, '0'), ss = String(sec).padStart(2, '0');
-  return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
-}
-function esc(t) { const d = document.createElement('div'); d.textContent = t ?? ''; return d.innerHTML; }
-function thumb(url, cls, fallbackCls) {
-  if (url) return `<img class="${cls}" src="${esc(url)}" alt="" onerror="this.outerHTML='<div class=&quot;${fallbackCls}&quot;>'+window._mic+'</div>'"/>`;
-  return `<div class="${fallbackCls}">${icon(I.podcast, 28)}</div>`;
-}
+const show = (id) => $(id).classList.remove('hidden');
+const hide = (id) => $(id).classList.add('hidden');
+function esc(t){ const d=document.createElement('div'); d.textContent=t??''; return d.innerHTML; }
+function clock(s){ if(!s) return ''; s=Math.round(s); const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),x=s%60;
+  const mm=String(m).padStart(h?2:1,'0'),ss=String(x).padStart(2,'0'); return h?`${h}:${mm}:${ss}`:`${mm}:${ss}`; }
+function thumb(url, cls, fb){ if(url) return `<img class="${cls}" src="${esc(url)}" alt="" onerror="this.outerHTML='<div class=&quot;${fb}&quot;>'+window._mic+'</div>'"/>`; return `<div class="${fb}">${icon(I.podcast,28)}</div>`; }
 window._mic = icon(I.podcast, 28);
 
-// ─── Config / status bar ────────────────────────────────────────────────────
-let STAGES = ['download', 'transcribe', 'detect', 'splice', 'metadata'];
-const STAGE_LABELS = {
-  download:  { name: 'Download',   idle: 'Queued', active: 'Downloading',  done: 'Downloaded' },
-  transcribe:{ name: 'Transcribe', idle: 'Queued', active: 'Transcribing', done: 'Transcribed' },
-  detect:    { name: 'Detect ads', idle: 'Queued', active: 'Detecting',    done: 'Detected' },
-  splice:    { name: 'Splice',     idle: 'Queued', active: 'Splicing',     done: 'Spliced' },
-  metadata:  { name: 'Tag',        idle: 'Queued', active: 'Tagging',      done: 'Tagged' },
-};
-fetch('/api/config').then(r => r.json()).then(cfg => {
-  STAGES = cfg.stages || STAGES;
+// Config
+fetch('/api/config').then(r=>r.json()).then(cfg=>{
   $('statusBar').innerHTML =
-    `<span class="item">Search · <b>${esc(cfg.search_provider)}</b></span><span class="sep"></span>` +
-    `<span class="item">Ads · <b>${esc(cfg.detector)}</b></span><span class="sep"></span>` +
-    `<span class="item">Whisper · <b>${esc(cfg.whisper_model)}</b></span>`;
-  $('footDetector').textContent = cfg.detector === 'local LLM' ? 'a small local model' : 'a heuristic detector';
-}).catch(() => {});
+    `<span class="item">Search · <b>${esc(cfg.search_provider)}</b></span><span class="sep"></span>`+
+    `<span class="item">Concurrency · <b>${cfg.concurrency}</b></span>`;
+  $('footDir').textContent = cfg.download_dir;
+  $('footConc').textContent = cfg.concurrency;
+}).catch(()=>{});
 
-// ─── Search ─────────────────────────────────────────────────────────────────
+// ── Search ────────────────────────────────────────────────────────────────
 let currentShow = null;
 $('searchForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const q = $('searchInput').value.trim();
-  if (!q) return;
-  show('resultsSection'); hide('episodesSection'); hide('processSection');
-  $('resultsTitle').textContent = 'Shows';
-  $('resultsBody').innerHTML = '<div class="loading-row">Searching the index</div>';
+  const q = $('searchInput').value.trim(); if(!q) return;
+  show('resultsSection'); hide('episodesSection');
+  $('resultsTitle').textContent='Shows';
+  $('resultsBody').innerHTML='<div class="loading-row">Searching the index</div>';
   try {
-    const r = await fetch('/api/search?q=' + encodeURIComponent(q));
-    if (!r.ok) throw new Error((await r.json()).detail || 'Search failed');
-    const { shows } = await r.json();
-    renderShows(shows, q);
-  } catch (err) {
-    $('resultsBody').innerHTML = `<div class="msg-error">${esc(err.message)}</div>`;
-  }
+    const r = await fetch('/api/search?q='+encodeURIComponent(q));
+    if(!r.ok) throw new Error((await r.json()).detail||'Search failed');
+    renderShows((await r.json()).shows, q);
+  } catch(err){ $('resultsBody').innerHTML=`<div class="msg-error">${esc(err.message)}</div>`; }
+});
+function renderShows(shows, q){
+  if(!shows.length){ $('resultsBody').innerHTML=`<div class="empty-state"><div class="ei">${icon(I.search,36,1.5)}</div><h3>No shows for “${esc(q)}”</h3><p>Try a different spelling or a broader term.</p></div>`; return; }
+  $('resultsTitle').textContent=`${shows.length} show${shows.length>1?'s':''}`;
+  const grid=document.createElement('div'); grid.className='card-grid';
+  shows.forEach(s=>{
+    const c=document.createElement('button'); c.className='card'; c.type='button';
+    c.innerHTML=thumb(s.image,'thumb','thumb-fallback')+`<div class="body"><div class="ctitle">${esc(s.title)}</div>`+
+      (s.author?`<div class="cauthor">${esc(s.author)}</div>`:'')+(s.episode_count?`<div class="cmeta">${s.episode_count} episodes</div>`:'')+`</div>`;
+    c.addEventListener('click',()=>loadEpisodes(s)); grid.appendChild(c);
+  });
+  $('resultsBody').innerHTML=''; $('resultsBody').appendChild(grid);
+}
+
+// ── Episodes (multi-select) ────────────────────────────────────────────────
+let episodes = [];
+async function loadEpisodes(showMeta){
+  currentShow = showMeta;
+  show('episodesSection');
+  $('episodesTitle').textContent = showMeta.title;
+  $('episodesBody').innerHTML='<div class="loading-row">Reading the feed</div>';
+  $('episodesSection').scrollIntoView({behavior:'smooth',block:'start'});
+  $('selectAll').checked=false; updateSelection();
+  try{
+    const r=await fetch('/api/episodes?feed_url='+encodeURIComponent(showMeta.feed_url));
+    if(!r.ok) throw new Error((await r.json()).detail||'Could not read feed');
+    const data=await r.json();
+    currentShow=Object.assign({},showMeta,data.show);
+    episodes=data.episodes; renderEpisodes();
+  } catch(err){ $('episodesBody').innerHTML=`<div class="msg-error">${esc(err.message)}</div>`; }
+}
+function renderEpisodes(){
+  if(!episodes.length){ $('episodesBody').innerHTML=`<div class="empty-state"><div class="ei">${icon(I.podcast,36,1.5)}</div><h3>No playable episodes</h3><p>This feed has no downloadable audio.</p></div>`; return; }
+  const list=document.createElement('div'); list.className='ep-list';
+  episodes.forEach((ep,idx)=>{
+    const date=ep.published?esc(ep.published.replace(/ \d{2}:\d{2}:\d{2}.*$/,'')):'';
+    const dur=ep.duration?clock(ep.duration):'';
+    let meta=''; if(date) meta+=`<span>${date}</span>`; if(date&&dur) meta+=`<span class="dot">·</span>`; if(dur) meta+=`<span>${dur}</span>`;
+    const lbl=document.createElement('label'); lbl.className='ep check';
+    lbl.innerHTML=`<input type="checkbox" class="ep-cb" data-idx="${idx}" /><span class="box">${icon(I.check,12)}</span>`+
+      `<div><div class="etitle">${esc(ep.title)}</div><div class="emeta">${meta}</div></div>`;
+    list.appendChild(lbl);
+  });
+  $('episodesBody').innerHTML=''; $('episodesBody').appendChild(list);
+  list.querySelectorAll('.ep-cb').forEach(cb=>cb.addEventListener('change',updateSelection));
+}
+function selectedIdx(){ return [...document.querySelectorAll('.ep-cb:checked')].map(c=>+c.dataset.idx); }
+function updateSelection(){
+  const n=selectedIdx().length;
+  $('downloadBtn').disabled = n===0;
+  $('dlBtnLabel').textContent = n? `Download ${n} selected` : 'Download selected';
+  $('selCount').textContent = n? `${n} selected` : 'Select all';
+  const all=document.querySelectorAll('.ep-cb').length;
+  $('selectAll').checked = all>0 && n===all;
+}
+$('selectAll').addEventListener('change', (e)=>{
+  document.querySelectorAll('.ep-cb').forEach(cb=>cb.checked=e.target.checked); updateSelection();
+});
+$('backToResults').addEventListener('click', ()=>{ hide('episodesSection'); $('resultsSection').scrollIntoView({behavior:'smooth'}); });
+
+$('downloadBtn').addEventListener('click', async ()=>{
+  const picks=selectedIdx().map(i=>episodes[i]); if(!picks.length) return;
+  $('downloadBtn').disabled=true;
+  try{
+    const r=await fetch('/api/download',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({show:currentShow, episodes:picks})});
+    if(!r.ok) throw new Error((await r.json()).detail||'Could not queue downloads');
+    document.querySelectorAll('.ep-cb').forEach(cb=>cb.checked=false); $('selectAll').checked=false; updateSelection();
+    show('downloadsSection'); $('downloadsSection').scrollIntoView({behavior:'smooth',block:'start'});
+  } catch(err){ alert(err.message); $('downloadBtn').disabled=false; }
 });
 
-function renderShows(shows, q) {
-  if (!shows.length) {
-    $('resultsBody').innerHTML = `<div class="empty-state"><div class="ei">${icon(I.search, 36, 1.5)}</div><h3>No shows for “${esc(q)}”</h3><p>Try a different spelling or a broader term.</p></div>`;
-    return;
-  }
-  $('resultsTitle').textContent = `${shows.length} show${shows.length > 1 ? 's' : ''}`;
-  const grid = document.createElement('div'); grid.className = 'card-grid';
-  shows.forEach((s) => {
-    const card = document.createElement('button'); card.className = 'card'; card.type = 'button';
-    card.innerHTML = thumb(s.image, 'thumb', 'thumb-fallback') +
-      `<div class="body"><div class="ctitle">${esc(s.title)}</div>` +
-      (s.author ? `<div class="cauthor">${esc(s.author)}</div>` : '') +
-      (s.episode_count ? `<div class="cmeta">${s.episode_count} episodes</div>` : '') + `</div>`;
-    card.addEventListener('click', () => loadEpisodes(s));
-    grid.appendChild(card);
-  });
-  $('resultsBody').innerHTML = ''; $('resultsBody').appendChild(grid);
-}
+// ── Downloads queue (global SSE) ───────────────────────────────────────────
+const VERB = { queued:'Queued', downloading:'Downloading', completed:'Completed', failed:'Failed', skipped:'Already saved' };
+const items = new Map();
+$('clearBtn').addEventListener('click', ()=>fetch('/api/downloads/clear',{method:'POST'}));
 
-// ─── Episodes ────────────────────────────────────────────────────────────────
-async function loadEpisodes(showMeta) {
-  currentShow = showMeta;
-  show('episodesSection'); hide('processSection');
-  $('episodesTitle').textContent = showMeta.title;
-  $('episodesBody').innerHTML = '<div class="loading-row">Reading the feed</div>';
-  $('episodesSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  try {
-    const r = await fetch('/api/episodes?feed_url=' + encodeURIComponent(showMeta.feed_url));
-    if (!r.ok) throw new Error((await r.json()).detail || 'Could not read feed');
-    const data = await r.json();
-    currentShow = Object.assign({}, showMeta, data.show);
-    renderEpisodes(data.episodes);
-  } catch (err) {
-    $('episodesBody').innerHTML = `<div class="msg-error">${esc(err.message)}</div>`;
+function renderQueue(){
+  const list=$('dlList');
+  if(!items.size){ hide('downloadsSection'); list.innerHTML=''; return; }
+  show('downloadsSection');
+  const active=[...items.values()].filter(i=>i.status==='queued'||i.status==='downloading').length;
+  $('downloadsTitle').textContent = active? `${active} in progress · ${items.size} total` : `${items.size} download${items.size>1?'s':''}`;
+  list.innerHTML='';
+  for(const it of items.values()){
+    const el=document.createElement('div'); el.className='qitem '+it.status; el.id='dl-'+it.id;
+    const pct=Math.round((it.progress||0)*100);
+    const indet = it.status==='downloading' && (!it.progress);
+    let meta = `<span class="show">${esc(it.show)}</span>`;
+    if(it.status==='failed' && it.error) meta += `<span>· ${esc(it.error)}</span>`;
+    else if((it.status==='completed'||it.status==='skipped') && it.rel_path)
+      meta += `<span>· <a href="/api/downloads/${it.id}/file" download>${esc(it.rel_path)}</a></span>`;
+    else if(it.status==='downloading') meta += `<span>· ${pct}%</span>`;
+    el.innerHTML = `<div class="qrow"><span class="qname">${esc(it.title)}</span><span class="qstatus">${VERB[it.status]||it.status}</span></div>`+
+      `<div class="qmeta">${meta}</div>`+
+      `<div class="progress${indet?' indeterminate':''}"><div class="bar" style="width:${pct}%"></div></div>`;
+    list.appendChild(el);
   }
 }
-
-function renderEpisodes(eps) {
-  if (!eps.length) {
-    $('episodesBody').innerHTML = `<div class="empty-state"><div class="ei">${icon(I.podcast, 36, 1.5)}</div><h3>No playable episodes</h3><p>This feed has no downloadable audio.</p></div>`;
-    return;
-  }
-  const list = document.createElement('div'); list.className = 'ep-list';
-  eps.forEach((ep) => {
-    const row = document.createElement('button'); row.className = 'ep'; row.type = 'button';
-    const date = ep.published ? esc(ep.published.replace(/ \d{2}:\d{2}:\d{2}.*$/, '')) : '';
-    const dur = ep.duration ? clock(ep.duration) : '';
-    let meta = '';
-    if (date) meta += `<span>${date}</span>`;
-    if (date && dur) meta += `<span class="dot">·</span>`;
-    if (dur) meta += `<span>${dur}</span>`;
-    row.innerHTML = `<div><div class="etitle">${esc(ep.title)}</div><div class="emeta">${meta}</div></div>` +
-      `<span class="epick">Remove ads →</span>`;
-    row.addEventListener('click', () => startJob(ep));
-    list.appendChild(row);
-  });
-  $('episodesBody').innerHTML = ''; $('episodesBody').appendChild(list);
-}
-$('backToResults').addEventListener('click', () => { hide('episodesSection'); $('resultsSection').scrollIntoView({ behavior: 'smooth' }); });
-
-// ─── Processing ──────────────────────────────────────────────────────────────
-async function startJob(ep) {
-  show('processSection'); hide('episodesSection'); hide('resultsSection');
-  $('processSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  $('processFeedback').innerHTML = '';
-  $('nowPlaying').innerHTML =
-    thumb(ep.image || currentShow.image, '', 'np-fallback') +
-    `<div><div class="np-title">${esc(ep.title)}</div><div class="np-show">${esc(currentShow.title || '')}</div></div>`;
-  renderLifecycle();
-
-  let job;
-  try {
-    const r = await fetch('/api/process', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ episode: ep, show: currentShow }),
-    });
-    if (!r.ok) throw new Error((await r.json()).detail || 'Could not start the job');
-    job = (await r.json()).job_id;
-  } catch (err) {
-    $('processFeedback').innerHTML = `<div class="msg-error" style="margin-top:1rem">${esc(err.message)}</div>`;
-    return;
-  }
-  streamEvents(job);
-}
-
-function renderLifecycle() {
-  const wrap = $('lifecycle'); wrap.innerHTML = '';
-  STAGES.forEach((st) => {
-    const L = STAGE_LABELS[st] || { name: st, idle: 'Queued' };
-    const el = document.createElement('div'); el.className = 'qitem'; el.id = 'stage-' + st;
-    el.innerHTML =
-      `<div class="qrow"><span class="qname">${esc(L.name)}</span><span class="qstatus">${esc(L.idle)}</span></div>` +
-      `<div class="qmsg"></div><div class="progress"><div class="bar"></div></div>`;
-    wrap.appendChild(el);
-  });
-}
-
-function streamEvents(jobId) {
-  const src = new EventSource('/api/jobs/' + jobId + '/events');
-  src.onmessage = (e) => {
-    let ev; try { ev = JSON.parse(e.data); } catch { return; }
-    if (ev.type === 'stage') updateStage(ev);
-    else if (ev.type === 'ads') renderAds(ev.ads);
-    else if (ev.type === 'done') { finishJob(ev); src.close(); }
-    else if (ev.type === 'error') { failJob(ev.message); src.close(); }
+function upsert(it){ items.set(it.id, Object.assign(items.get(it.id)||{}, it)); }
+function connectEvents(){
+  const src=new EventSource('/api/events');
+  src.onmessage=(e)=>{
+    let ev; try{ ev=JSON.parse(e.data); }catch{ return; }
+    if(ev.type==='snapshot'){ items.clear(); (ev.items||[]).forEach(upsert); renderQueue(); }
+    else if(ev.type==='item'){ upsert(ev); renderQueue(); }
   };
-  src.onerror = () => { /* allow the browser to retry; terminal events close it */ };
+  src.onerror=()=>{ /* EventSource auto-reconnects; snapshot re-syncs state */ };
 }
-
-function updateStage(ev) {
-  const el = $('stage-' + ev.stage); if (!el) return;
-  const L = STAGE_LABELS[ev.stage] || { active: 'Working', done: 'Done', idle: 'Queued' };
-  el.classList.remove('active', 'completed', 'failed');
-  const statusEl = el.querySelector('.qstatus');
-  const bar = el.querySelector('.bar');
-  const prog = el.querySelector('.progress');
-  if (ev.status === 'active') {
-    el.classList.add('active'); statusEl.textContent = L.active;
-    if (ev.progress > 0) { prog.classList.remove('indeterminate'); bar.style.width = (ev.progress * 100).toFixed(0) + '%'; }
-    else { prog.classList.add('indeterminate'); }
-  } else if (ev.status === 'completed') {
-    el.classList.add('completed'); statusEl.textContent = L.done;
-    prog.classList.remove('indeterminate'); bar.style.width = '100%';
-  } else if (ev.status === 'failed') {
-    el.classList.add('failed'); statusEl.textContent = 'Failed';
-    prog.classList.remove('indeterminate');
-  }
-  if (ev.message) el.querySelector('.qmsg').textContent = ev.message;
-}
-
-function renderAds(ads) {
-  let panel = $('adsPanel');
-  if (!panel) {
-    panel = document.createElement('div'); panel.id = 'adsPanel'; panel.className = 'panel ads-panel';
-    $('processFeedback').appendChild(panel);
-  }
-  if (!ads.length) {
-    panel.innerHTML = `<div class="section-head" style="margin-bottom:.75rem"><span class="marker">Result.</span><h2 class="section-title" style="font-size:1.25rem">No ads found</h2></div><p style="font-family:var(--serif);font-style:italic;color:var(--text-dim);margin:0">This episode came through clean — the file is passed through untouched.</p>`;
-    return;
-  }
-  const rows = ads.map((a) =>
-    `<div class="ad-row"><span class="ad-time">${clock(a.start)} – ${clock(a.end)}</span><span class="ad-reason">${esc(a.reason)}</span></div>`
-  ).join('');
-  panel.innerHTML = `<div class="section-head" style="margin-bottom:.75rem"><span class="marker">Ads.</span><h2 class="section-title" style="font-size:1.25rem">${ads.length} segment${ads.length > 1 ? 's' : ''} removed</h2></div>${rows}`;
-}
-
-function finishJob(ev) {
-  const fb = document.createElement('div');
-  const saved = ev.saved_seconds ? `${clock(ev.saved_seconds)} of ads removed` : 'No ads to remove';
-  fb.innerHTML =
-    `<div class="notice" style="margin-top:1.5rem"><b>Done.</b> ${esc(saved)}. Your ad-free file is ready, with its cover art and tags restored.</div>` +
-    `<div class="done-actions"><a class="btn-primary" href="${esc(ev.download_url)}" download>${icon(I.download, 14)} Download ${esc(ev.filename)}</a></div>`;
-  $('processFeedback').appendChild(fb);
-}
-
-function failJob(msg) {
-  STAGES.forEach((st) => { const el = $('stage-' + st); if (el && el.classList.contains('active')) { el.classList.remove('active'); el.classList.add('failed'); el.querySelector('.qstatus').textContent = 'Failed'; } });
-  const fb = document.createElement('div');
-  fb.innerHTML = `<div class="msg-error" style="margin-top:1.5rem">${esc(msg)}</div>`;
-  $('processFeedback').appendChild(fb);
-}
-</script>
-</body>
-</html>
+connectEvents();

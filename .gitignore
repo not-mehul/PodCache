@@ -5,11 +5,9 @@ __pycache__/
 .venv/
 venv/
 
-# Working files: downloads, transcripts, finished cuts
+# Downloaded episodes
+downloads/
 data/
 *.mp3
 *.m4a
 *.wav
-
-# Whisper model cache
-models/
