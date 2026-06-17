@@ -20,8 +20,23 @@ dedicated folder, original audio and tags intact.
    transcription, no model. Chapters come from the file's embedded ID3 markers
    or a Podcasting 2.0 chapters document. Needs `ffmpeg` on PATH; if it's
    missing (or there are no chapters), the episode is simply saved untouched.
-5. **Stored locally** — files land in a dedicated downloads area, **one
+5. **Ad removal (cross-episode)** — once a batch of several episodes from one
+   show has downloaded, PodCache fingerprints them with Chromaprint (`fpcalc`)
+   and cuts the audio that **recurs across episodes** — intros, outros, and
+   baked-in host-read ads. Still cheap: an audio fingerprint plus a set
+   intersection, no transcription. Needs `fpcalc` + `ffmpeg`; skipped if either
+   is missing.
+6. **Stored locally** — files land in a dedicated downloads area, **one
    sub-folder per show**, with ID3 tags and cover art preserved.
+
+For the two ad-removal tiers, install the helpers:
+
+```bash
+# macOS
+brew install ffmpeg chromaprint
+# Debian / Ubuntu
+sudo apt install ffmpeg libchromaprint-tools
+```
 
 ## Stack
 
@@ -61,7 +76,8 @@ live, and finished files are linked from there (and saved on disk).
 | `PODCACHE_CONCURRENCY` | `3` | How many episodes download at once |
 | `PODCACHE_PAGE_SIZE` | `50` | Episodes shown per page |
 | `PODCACHE_FEED_LIMIT` | `2000` | Max episodes read from a feed |
-| `PODCACHE_REMOVE_ADS` | `1` | Cut sponsor-titled chapters after download (needs `ffmpeg`) |
+| `PODCACHE_REMOVE_ADS` | `1` | Cut sponsor-titled chapters, and recurring cross-episode segments (needs `ffmpeg` / `fpcalc`) |
+| `PODCACHE_DEDUPE_MIN_EPISODES` | `3` | Episodes per batch before cross-episode repetition runs |
 | `PODCASTINDEX_API_KEY` / `_SECRET` | — | PodcastIndex search (optional) |
 | `PODCACHE_HOST` / `PORT` | `127.0.0.1` / `8000` | Bind address |
 

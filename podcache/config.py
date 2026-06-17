@@ -58,6 +58,11 @@ class Config:
     remove_ads: bool = os.environ.get("PODCACHE_REMOVE_ADS", "1").strip().lower() not in (
         "0", "false", "no", "off", ""
     )
+    # Cross-episode repetition detection runs once a batch of at least this many
+    # episodes from the same show has downloaded (needs fpcalc + ffmpeg).
+    dedupe_min_episodes: int = max(
+        2, int(os.environ.get("PODCACHE_DEDUPE_MIN_EPISODES", "3"))
+    )
 
     # Server
     host: str = os.environ.get("PODCACHE_HOST", "127.0.0.1")

@@ -16,7 +16,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from . import chapters, download, splice
+from collections import defaultdict
+
+from . import chapters, download, repetition, splice
 from .config import config
 from .download import safe_name
 
@@ -29,6 +31,7 @@ class DownloadItem:
     media_url: str
     image: str = ""
     chapters_url: str = ""
+    batch_id: str = ""
     status: str = "queued"  # queued | downloading | completed | failed | skipped
     progress: float = 0.0
     error: str = ""
@@ -61,6 +64,9 @@ class DownloadManager:
         )
         self._lock = threading.Lock()
         self._loop: asyncio.AbstractEventLoop | None = None
+        # Per-batch remaining item ids, so repetition detection can fire once a
+        # whole batch from one show has finished downloading.
+        self._batches: dict[str, set[str]] = {}
 
     # ── wiring ────────────────────────────────────────────────────────────────
     def bind_loop(self, loop: asyncio.AbstractEventLoop) -> None:
@@ -99,7 +105,8 @@ class DownloadManager:
     ) -> list[str]:
         show_title = (show.get("title") or "Unknown Show").strip()
         image = show.get("image") or ""
-        ids: list[str] = []
+        batch_id = uuid.uuid4().hex[:12]
+        new_items: list[DownloadItem] = []
         for ep in episodes:
             url = ep.get("media_url")
             if not url:
@@ -111,14 +118,22 @@ class DownloadManager:
                 media_url=url,
                 image=ep.get("image") or image,
                 chapters_url=ep.get("chapters_url") or "",
+                batch_id=batch_id,
             )
             with self._lock:
                 self._items[item.id] = item
                 self._order.append(item.id)
+            new_items.append(item)
+
+        # Register the batch before any worker can finish, so the
+        # batch-complete trigger can't be missed.
+        with self._lock:
+            self._batches[batch_id] = {it.id for it in new_items}
+
+        for item in new_items:
             self._broadcast({"type": "item", **item.as_dict()})
             self._executor.submit(self._run, item)
-            ids.append(item.id)
-        return ids
+        return [it.id for it in new_items]
 
     def clear_finished(self) -> None:
         """Drop completed/failed/skipped items from the list (files stay on disk)."""
@@ -160,6 +175,7 @@ class DownloadManager:
         if existing is not None:
             item.rel_path = str(existing.relative_to(config.download_dir))
             self._update(item, status="skipped", progress=1.0)
+            self._on_item_done(item)
             return
 
         self._update(item, status="downloading", progress=0.0)
@@ -184,6 +200,7 @@ class DownloadManager:
             self._update(
                 item, status="failed", error=str(exc) or exc.__class__.__name__
             )
+        self._on_item_done(item)
 
     def _remove_ads(self, item: DownloadItem, path: Path) -> None:
         """Tier 0 ad removal: cut sponsor-titled chapters. Never fails the job."""
@@ -200,6 +217,72 @@ class DownloadManager:
                 item.ad_seconds = seconds
         except Exception:
             pass  # ad removal is best-effort; keep the downloaded file regardless
+
+    # ── cross-episode repetition (Tier 1) ─────────────────────────────────────
+    def _on_item_done(self, item: DownloadItem) -> None:
+        """When every item in a batch has finished, kick off repetition detection."""
+        bid = item.batch_id
+        if not bid:
+            return
+        fire = False
+        with self._lock:
+            remaining = self._batches.get(bid)
+            if remaining is not None:
+                remaining.discard(item.id)
+                if not remaining:
+                    self._batches.pop(bid, None)
+                    fire = True
+        if fire:
+            threading.Thread(target=self._run_repetition, args=(bid,), daemon=True).start()
+
+    def _run_repetition(self, batch_id: str) -> None:
+        """Detect and cut segments that recur across the batch's episodes."""
+        if not config.remove_ads:
+            return
+        if not (repetition.fpcalc_available() and splice.ffmpeg_available()):
+            return
+        with self._lock:
+            members = [
+                it
+                for it in self._items.values()
+                if it.batch_id == batch_id
+                and it.status in ("completed", "skipped")
+                and it.rel_path
+            ]
+        # Group by the on-disk show folder; dedupe each group independently.
+        groups: dict[Path, list[DownloadItem]] = defaultdict(list)
+        for it in members:
+            groups[(config.download_dir / it.rel_path).parent].append(it)
+        for items in groups.values():
+            if len(items) >= config.dedupe_min_episodes:
+                try:
+                    self._dedupe_group(items)
+                except Exception:
+                    pass  # best-effort; downloads are already safe on disk
+
+    def _dedupe_group(self, items: list[DownloadItem]) -> None:
+        fingerprints: list[list[int]] = []
+        item_secs: list[float] = []
+        paired: list[tuple[DownloadItem, Path]] = []
+        for it in items:
+            path = config.download_dir / it.rel_path
+            fp = repetition.fingerprint(path)
+            if fp is None:
+                continue
+            fingerprints.append(fp[0])
+            item_secs.append(fp[1])
+            paired.append((it, path))
+        if len(paired) < config.dedupe_min_episodes:
+            return
+        per_file = repetition.recurring_segments(fingerprints, item_secs)
+        for (it, path), segs in zip(paired, per_file):
+            if not segs:
+                continue
+            did_cut, seconds = splice.cut(path, segs)
+            if did_cut:
+                it.ads_removed += len(segs)
+                it.ad_seconds += seconds
+                self._broadcast({"type": "item", **it.as_dict()})
 
 
 manager = DownloadManager()
