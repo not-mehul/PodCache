@@ -26,6 +26,16 @@ def _enclosure_url(entry: Any) -> str:
     return ""
 
 
+def _chapters_url(entry: Any) -> str:
+    """Best-effort Podcasting 2.0 <podcast:chapters> URL, if the feed has one."""
+    ch = entry.get("podcast_chapters") if hasattr(entry, "get") else None
+    if isinstance(ch, dict):
+        return ch.get("url") or ch.get("href") or ""
+    if isinstance(ch, str):
+        return ch
+    return ""
+
+
 def _duration_seconds(entry: Any) -> int | None:
     """Parse the iTunes duration tag, which may be seconds or HH:MM:SS."""
     raw = entry.get("itunes_duration") if hasattr(entry, "get") else None
@@ -99,6 +109,7 @@ def parse_feed(feed_url: str, limit: int | None = None) -> dict[str, Any]:
                 "duration": _duration_seconds(entry),
                 "media_url": media_url,
                 "image": ep_image,
+                "chapters_url": _chapters_url(entry),
             }
         )
 

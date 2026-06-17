@@ -53,6 +53,12 @@ class Config:
     page_size: int = max(1, int(os.environ.get("PODCACHE_PAGE_SIZE", "50")))
     feed_limit: int = max(1, int(os.environ.get("PODCACHE_FEED_LIMIT", "2000")))
 
+    # Ad removal — cut sponsor-titled chapters after download (needs ffmpeg on
+    # PATH; a no-op when no chapters/ffmpeg are present).
+    remove_ads: bool = os.environ.get("PODCACHE_REMOVE_ADS", "1").strip().lower() not in (
+        "0", "false", "no", "off", ""
+    )
+
     # Server
     host: str = os.environ.get("PODCACHE_HOST", "127.0.0.1")
     port: int = int(os.environ.get("PODCACHE_PORT", "8000"))

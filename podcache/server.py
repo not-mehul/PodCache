@@ -135,7 +135,11 @@ async def start_download(request: Request) -> RedirectResponse:
             obj = json.loads(raw)
             if obj.get("u"):
                 episodes.append(
-                    {"media_url": obj["u"], "title": obj.get("t", "Episode")}
+                    {
+                        "media_url": obj["u"],
+                        "title": obj.get("t", "Episode"),
+                        "chapters_url": obj.get("c", ""),
+                    }
                 )
         except (json.JSONDecodeError, TypeError):
             continue

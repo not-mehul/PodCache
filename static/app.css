@@ -831,6 +831,12 @@ label.ep:hover {
     letter-spacing: 0;
     text-transform: none;
 }
+.qchip.ads {
+    color: var(--accent-sage);
+    border-color: rgba(var(--accent-sage-rgb), 0.35);
+    letter-spacing: 0;
+    text-transform: none;
+}
 .qmeta a {
     color: var(--accent-amber);
     text-decoration: none;

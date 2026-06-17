@@ -14,9 +14,14 @@ dedicated folder, original audio and tags intact.
 3. **Bulk download** — episodes are queued and downloaded **concurrently**
    (configurable limit), with live per-item progress. Long back-catalogues are
    **paginated**, so you can reach and download well beyond the latest 50.
-4. **Stored locally** — files land in a dedicated downloads area, **one
-   sub-folder per show**. The original enclosure is saved as-is, so its ID3
-   tags and cover art are preserved exactly as the publisher shipped them.
+4. **Ad removal (chapters)** — after each download, any chapter whose title
+   looks like a sponsor read (e.g. *"Sponsor: ACME"*, *"Ad"*) is cut out. This
+   is free: a chapter-metadata read plus an `ffmpeg` stream-copy — no
+   transcription, no model. Chapters come from the file's embedded ID3 markers
+   or a Podcasting 2.0 chapters document. Needs `ffmpeg` on PATH; if it's
+   missing (or there are no chapters), the episode is simply saved untouched.
+5. **Stored locally** — files land in a dedicated downloads area, **one
+   sub-folder per show**, with ID3 tags and cover art preserved.
 
 ## Stack
 
@@ -56,6 +61,7 @@ live, and finished files are linked from there (and saved on disk).
 | `PODCACHE_CONCURRENCY` | `3` | How many episodes download at once |
 | `PODCACHE_PAGE_SIZE` | `50` | Episodes shown per page |
 | `PODCACHE_FEED_LIMIT` | `2000` | Max episodes read from a feed |
+| `PODCACHE_REMOVE_ADS` | `1` | Cut sponsor-titled chapters after download (needs `ffmpeg`) |
 | `PODCASTINDEX_API_KEY` / `_SECRET` | — | PodcastIndex search (optional) |
 | `PODCACHE_HOST` / `PORT` | `127.0.0.1` / `8000` | Bind address |
 

@@ -221,12 +221,10 @@ def page_results(
 
 
 def _episode_row(ep: dict[str, Any]) -> str:
-    value = attr(
-        json.dumps(
-            {"u": ep["media_url"], "t": ep.get("title", "Episode")},
-            separators=(",", ":"),
-        )
-    )
+    payload = {"u": ep["media_url"], "t": ep.get("title", "Episode")}
+    if ep.get("chapters_url"):
+        payload["c"] = ep["chapters_url"]
+    value = attr(json.dumps(payload, separators=(",", ":")))
     pub = ep.get("published") or ""
     date = esc(re.sub(r"\s\d{2}:\d{2}:\d{2}.*$", "", pub)) if pub else ""
     dur = _clock(ep.get("duration"))
@@ -352,6 +350,10 @@ def queue_item(it: dict[str, Any]) -> str:
         chips = f'<a href="/file/{attr(it["id"])}" download>{esc(it["rel_path"])}</a>'
     elif status == "downloading":
         chips = f'<span class="qchip mono">{pct}%</span>'
+    if it.get("ads_removed"):
+        n = it["ads_removed"]
+        cut = _clock(round(it.get("ad_seconds") or 0))
+        chips += f'<span class="qchip ads">{n} ad{"s" if n != 1 else ""} cut · {cut}</span>'
 
     prog_cls = " indeterminate" if indet else ""
     return (

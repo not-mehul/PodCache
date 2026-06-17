@@ -6,3 +6,8 @@ uvicorn[standard]>=0.29
 # HTTP downloads + feed parsing
 httpx>=0.27
 feedparser>=6.0
+
+# Ad removal — read embedded ID3 chapters / restore tags after cutting.
+# (Cutting also needs the `ffmpeg` binary on PATH; ad removal is skipped if it
+# isn't installed.)
+mutagen>=1.47

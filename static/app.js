@@ -134,6 +134,18 @@ helpers, and live download progress. Every part is guarded. */
           "</a>";
       else if (it.status === "downloading")
         chips = '<span class="qchip mono">' + pct + "%</span>";
+      if (it.ads_removed) {
+        var secs = Math.round(it.ad_seconds || 0);
+        var mm = Math.floor(secs / 60),
+          ss = secs % 60;
+        var clock = mm + ":" + (ss < 10 ? "0" + ss : ss);
+        chips +=
+          '<span class="qchip ads">' +
+          it.ads_removed +
+          (it.ads_removed === 1 ? " ad cut · " : " ads cut · ") +
+          clock +
+          "</span>";
+      }
       return (
         '<div class="qbody"><p class="qtitle">' +
         escapeHTML(it.title) +

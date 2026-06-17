@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from . import download
+from . import chapters, download, splice
 from .config import config
 from .download import safe_name
 
@@ -28,10 +28,13 @@ class DownloadItem:
     episode_title: str
     media_url: str
     image: str = ""
+    chapters_url: str = ""
     status: str = "queued"  # queued | downloading | completed | failed | skipped
     progress: float = 0.0
     error: str = ""
     rel_path: str = ""  # path relative to the downloads dir, once known
+    ads_removed: int = 0  # number of ad segments cut
+    ad_seconds: float = 0.0  # seconds of audio removed
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -43,6 +46,8 @@ class DownloadItem:
             "progress": round(self.progress, 3),
             "error": self.error,
             "rel_path": self.rel_path,
+            "ads_removed": self.ads_removed,
+            "ad_seconds": round(self.ad_seconds, 1),
         }
 
 
@@ -105,6 +110,7 @@ class DownloadManager:
                 episode_title=(ep.get("title") or "Episode").strip(),
                 media_url=url,
                 image=ep.get("image") or image,
+                chapters_url=ep.get("chapters_url") or "",
             )
             with self._lock:
                 self._items[item.id] = item
@@ -171,12 +177,29 @@ class DownloadManager:
             path = download.download(
                 item.media_url, dest_dir, stem, on_progress=on_progress
             )
+            self._remove_ads(item, path)
             item.rel_path = str(path.relative_to(config.download_dir))
             self._update(item, status="completed", progress=1.0)
         except Exception as exc:
             self._update(
                 item, status="failed", error=str(exc) or exc.__class__.__name__
             )
+
+    def _remove_ads(self, item: DownloadItem, path: Path) -> None:
+        """Tier 0 ad removal: cut sponsor-titled chapters. Never fails the job."""
+        if not config.remove_ads:
+            return
+        try:
+            chs = chapters.extract(path, item.chapters_url)
+            ads = chapters.ad_segments(chs, splice.media_duration(path))
+            if not ads:
+                return
+            did_cut, seconds = splice.cut(path, ads)
+            if did_cut:
+                item.ads_removed = len(ads)
+                item.ad_seconds = seconds
+        except Exception:
+            pass  # ad removal is best-effort; keep the downloaded file regardless
 
 
 manager = DownloadManager()
