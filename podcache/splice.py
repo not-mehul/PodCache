@@ -88,6 +88,22 @@ def _restore_tags(src: Path, dst: Path) -> None:
         pass
 
 
+def extract_clip(src: Path, start: float, end: float, out: Path) -> bool:
+    """Write the [start, end] slice of `src` to `out` (stream copy). For previews."""
+    if not ffmpeg_available():
+        return False
+    try:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        subprocess.run(
+            ["ffmpeg", "-y", "-loglevel", "error", "-i", str(src),
+             "-ss", f"{max(0.0, start):.3f}", "-to", f"{end:.3f}", "-c", "copy", str(out)],
+            check=True,
+        )
+        return out.exists()
+    except Exception:
+        return False
+
+
 def cut(audio_path: Path, ads: list[tuple[float, float]]) -> tuple[bool, float]:
     """Remove `ads` from `audio_path` in place. Returns (did_cut, seconds_removed)."""
     audio_path = Path(audio_path)

@@ -35,6 +35,9 @@ _ICON = {
     "arrow-left": '<path d="m15 18-6-6 6-6"/>',
     "arrow-right": '<path d="m9 18 6-6-6-6"/>',
     "inbox": '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+    "library": '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+    "scan": '<path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v5h-5"/>',
+    "scissors": '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/>',
 }
 
 
@@ -95,7 +98,14 @@ def _tabs(active: str, downloads_count: int) -> str:
     cnt = f' <span class="count">({downloads_count})</span>' if downloads_count else ""
     s = ' class="active"' if active == "search" else ""
     d = ' class="active"' if active == "downloads" else ""
-    return f'<nav class="tabs"><a href="/"{s}>Search</a><a href="/downloads"{d}>Downloads{cnt}</a></nav>'
+    lib = ' class="active"' if active == "library" else ""
+    return (
+        '<nav class="tabs">'
+        f'<a href="/"{s}>Search</a>'
+        f'<a href="/downloads"{d}>Downloads{cnt}</a>'
+        f'<a href="/library"{lib}>Library</a>'
+        "</nav>"
+    )
 
 
 def layout(*, title: str, active: str, body: str, downloads_count: int = 0) -> str:
@@ -401,3 +411,138 @@ def page_downloads(items: list[dict[str, Any]]) -> str:
     return layout(
         title="Downloads", active="downloads", body=body, downloads_count=len(items)
     )
+
+
+# ── library / show profiles ──────────────────────────────────────────────────
+def _scan_button(show_key: str, tools_ok: bool, label: str = "Scan for ads") -> str:
+    dis = "" if tools_ok else " disabled"
+    return (
+        f'<form method="post" action="/library/scan" style="margin:0">'
+        f'<input type="hidden" name="show" value="{attr(show_key)}" />'
+        f'<button class="btn btn-ghost btn-sm" type="submit"{dis}>{icon("scan", 13)} {esc(label)}</button>'
+        "</form>"
+    )
+
+
+def _tools_notice(tools_ok: bool) -> str:
+    if tools_ok:
+        return ""
+    return (
+        '<div class="notice"><b>Ad scanning is off.</b> Install <span class="mono">ffmpeg</span> '
+        'and <span class="mono">fpcalc</span> (Chromaprint) to detect and cut recurring '
+        "intros, outros, and ads across a show’s episodes.</div>"
+    )
+
+
+def page_library(shows: list[dict[str, Any]], tools_ok: bool, downloads_count: int = 0) -> str:
+    if not shows:
+        inner = (
+            '<div class="empty-state"><div class="ei">'
+            + icon("library", 38, 1.5)
+            + "</div><h3>No shows downloaded yet</h3><p>Download some episodes; they’ll appear here to scan and review.</p></div>"
+        )
+    else:
+        rows = []
+        for s in shows:
+            href = "/library/show?" + urlencode({"name": s["key"]})
+            meta = f'{s["episodes"]} episode{"s" if s["episodes"] != 1 else ""} · {s["patterns"]} pattern{"s" if s["patterns"] != 1 else ""}'
+            pend = (
+                f'<span class="qchip ads">{s["pending"]} to review</span>'
+                if s.get("pending")
+                else ""
+            )
+            rows.append(
+                '<div class="lib-row">'
+                f'<div class="lib-main"><div class="lib-title">{esc(s["key"])}</div>'
+                f'<div class="lib-meta">{esc(meta)} {pend}</div></div>'
+                f'<div class="lib-actions">{_scan_button(s["key"], tools_ok)}'
+                f'<a class="btn btn-ghost btn-sm" href="{attr(href)}">Review {icon("arrow-right", 13)}</a></div>'
+                "</div>"
+            )
+        inner = '<div class="lib-list">' + "".join(rows) + "</div>"
+    body = _tools_notice(tools_ok) + (
+        '<section class="section"><div class="section-head"><span class="marker">Library.</span>'
+        f'<h2 class="section-title">Your <em>shows</em></h2></div>{inner}</section>'
+    )
+    return layout(title="Library", active="library", body=body, downloads_count=downloads_count)
+
+
+_LABEL_NOUN = {"ad": "Ad", "intro": "Intro", "outro": "Outro"}
+
+
+def _pattern_card(show_key: str, pat: Any, tools_ok: bool) -> str:
+    secs = _clock(round(pat.seconds))
+    label_chip = f'<span class="qchip ads">{esc(_LABEL_NOUN.get(pat.label, pat.label))}</span>'
+    status_chip = f'<span class="qchip">{esc(pat.status)}</span>'
+    seen = f'<span class="qchip">seen ×{pat.episodes_seen}</span>'
+    length = f'<span class="qchip mono">{esc(secs)}</span>'
+
+    audio = ""
+    if pat.clip:
+        src = "/clip?" + urlencode({"show": show_key, "pattern": pat.id})
+        audio = f'<audio controls preload="none" src="{attr(src)}"></audio>'
+    else:
+        audio = '<p class="hint">Preview unavailable (no clip on disk).</p>'
+
+    def _post(action: str, label: str, text: str, primary: bool = False) -> str:
+        cls = "btn btn-primary btn-sm" if primary else "btn btn-ghost btn-sm"
+        extra = f'<input type="hidden" name="label" value="{attr(label)}" />' if label else ""
+        return (
+            '<form method="post" action="/library/pattern" style="margin:0">'
+            f'<input type="hidden" name="show" value="{attr(show_key)}" />'
+            f'<input type="hidden" name="pattern_id" value="{attr(pat.id)}" />'
+            f'<input type="hidden" name="action" value="{attr(action)}" />{extra}'
+            f'<button class="{cls}" type="submit">{esc(text)}</button></form>'
+        )
+
+    if pat.status == "pending":
+        actions = (
+            _post("confirm", "ad", "Confirm: Ad", primary=True)
+            + _post("confirm", "intro", "Intro")
+            + _post("confirm", "outro", "Outro")
+            + _post("reject", "", "Not an ad")
+        )
+    elif pat.status == "confirmed":
+        actions = (
+            _post("relabel", "ad", "Ad")
+            + _post("relabel", "intro", "Intro")
+            + _post("relabel", "outro", "Outro")
+            + _post("reject", "", "Remove")
+        )
+    else:  # rejected
+        actions = _post("confirm", pat.label, "Restore")
+
+    return (
+        '<div class="pat-card">'
+        f'<div class="chip-row">{label_chip}{status_chip}{length}{seen}</div>'
+        f"{audio}"
+        f'<div class="pat-actions">{actions}</div>'
+        "</div>"
+    )
+
+
+def page_show_profile(show_key: str, prof: Any, tools_ok: bool, downloads_count: int = 0) -> str:
+    order = {"pending": 0, "confirmed": 1, "rejected": 2}
+    pats = sorted(prof.patterns, key=lambda p: (order.get(p.status, 3), -p.episodes_seen))
+    visible = [p for p in pats if p.status != "rejected"]
+    if not visible:
+        cards = (
+            '<div class="empty-state"><div class="ei">'
+            + icon("scissors", 36, 1.5)
+            + "</div><h3>No patterns yet</h3><p>Scan this show to detect intros, outros, and recurring ads.</p></div>"
+        )
+    else:
+        cards = '<div class="stack">' + "".join(_pattern_card(show_key, p, tools_ok) for p in visible) + "</div>"
+    pending = sum(1 for p in prof.patterns if p.status == "pending")
+    sub = f"{pending} to review · {len(visible)} pattern{'s' if len(visible) != 1 else ''}"
+    body = (
+        f'<div class="back-link"><a class="btn btn-ghost btn-sm" href="/library">{icon("arrow-left", 13)} Back to library</a></div>'
+        + _tools_notice(tools_ok)
+        + '<section class="section"><div class="section-head"><span class="marker">Patterns.</span>'
+        + f'<h2 class="section-title">{esc(show_key)}</h2>'
+        + f'<div class="controls">{_scan_button(show_key, tools_ok, "Re-scan")}</div></div>'
+        + f'<p class="hint" style="margin-top:0">{esc(sub)}</p>'
+        + cards
+        + "</section>"
+    )
+    return layout(title=esc(show_key), active="library", body=body, downloads_count=downloads_count)

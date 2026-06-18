@@ -11,3 +11,6 @@ data/
 *.mp3
 *.m4a
 *.wav
+
+# Learned show profiles + preview clips
+profiles/

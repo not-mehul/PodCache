@@ -26,8 +26,19 @@ dedicated folder, original audio and tags intact.
    baked-in host-read ads. Still cheap: an audio fingerprint plus a set
    intersection, no transcription. Needs `fpcalc` + `ffmpeg`; skipped if either
    is missing.
-6. **Stored locally** — files land in a dedicated downloads area, **one
-   sub-folder per show**, with ID3 tags and cover art preserved.
+6. **Show profiles (learned, reusable)** — the recurring segments PodCache
+   finds are saved per show as **patterns** (a fingerprint + a label). Once a
+   show is learned, its intro/outro/ads are stripped from *future* downloads —
+   and from episodes you downloaded earlier — without re-deriving anything. The
+   **Library** tab lists your shows; "Scan for ads" runs detection over a show's
+   existing files on disk.
+7. **Optional review** — set `PODCACHE_REVIEW_ADS=1` and detected segments are
+   saved as *pending* instead of being cut. In the Library you can **listen to
+   each segment** and confirm it as Ad / Intro / Outro (or reject it).
+   Confirmed patterns are then cut from every episode and applied going forward.
+8. **Stored locally** — files land in a dedicated downloads area, **one
+   sub-folder per show**, with ID3 tags and cover art preserved. Learned
+   profiles live in `profiles/`.
 
 For the two ad-removal tiers, install the helpers:
 
@@ -78,6 +89,8 @@ live, and finished files are linked from there (and saved on disk).
 | `PODCACHE_FEED_LIMIT` | `2000` | Max episodes read from a feed |
 | `PODCACHE_REMOVE_ADS` | `1` | Cut sponsor-titled chapters, and recurring cross-episode segments (needs `ffmpeg` / `fpcalc`) |
 | `PODCACHE_DEDUPE_MIN_EPISODES` | `3` | Episodes per batch before cross-episode repetition runs |
+| `PODCACHE_REVIEW_ADS` | `0` | Save detected segments for listen-and-confirm review instead of auto-cutting |
+| `PODCACHE_PROFILES_DIR` | `profiles` | Where learned show profiles + preview clips are stored |
 | `PODCASTINDEX_API_KEY` / `_SECRET` | — | PodcastIndex search (optional) |
 | `PODCACHE_HOST` / `PORT` | `127.0.0.1` / `8000` | Bind address |
 

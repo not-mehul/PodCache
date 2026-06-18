@@ -47,6 +47,10 @@ class Config:
     download_dir: Path = _resolve_dir(
         os.environ.get("PODCACHE_DOWNLOAD_DIR", ""), _PROJECT_ROOT / "downloads"
     )
+    # Learned show profiles (recurring ad/intro/outro fingerprints) live here.
+    profiles_dir: Path = _resolve_dir(
+        os.environ.get("PODCACHE_PROFILES_DIR", ""), _PROJECT_ROOT / "profiles"
+    )
     concurrency: int = max(1, int(os.environ.get("PODCACHE_CONCURRENCY", "3")))
 
     # Episode listing: how many per page, and the most to read from a feed.
@@ -62,6 +66,12 @@ class Config:
     # episodes from the same show has downloaded (needs fpcalc + ffmpeg).
     dedupe_min_episodes: int = max(
         2, int(os.environ.get("PODCACHE_DEDUPE_MIN_EPISODES", "3"))
+    )
+    # Review mode: when on, newly-detected recurring segments are saved as
+    # *pending* patterns to listen to and confirm, instead of being cut
+    # automatically. Confirmed patterns are always applied.
+    review_ads: bool = os.environ.get("PODCACHE_REVIEW_ADS", "0").strip().lower() in (
+        "1", "true", "yes", "on"
     )
 
     # Server

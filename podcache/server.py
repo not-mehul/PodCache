@@ -22,7 +22,7 @@ from fastapi.responses import (
     StreamingResponse,
 )
 
-from . import feed, podcastindex, render
+from . import feed, podcastindex, render, repetition, splice
 from .manager import manager
 
 _STATIC = Path(__file__).resolve().parent.parent / "static"
@@ -175,6 +175,66 @@ def file(item_id: str) -> Response:
     if path is None or not path.exists():
         return Response("File not available.", status_code=404)
     return FileResponse(path, filename=path.name, media_type="application/octet-stream")
+
+
+# ── library / show profiles ─────────────────────────────────────────────────
+def _tools_ok() -> bool:
+    return repetition.fpcalc_available() and splice.ffmpeg_available()
+
+
+@app.get("/library", response_class=HTMLResponse)
+def library() -> HTMLResponse:
+    return _page(
+        render.page_library(manager.list_shows(), _tools_ok(), downloads_count=manager.count())
+    )
+
+
+@app.get("/library/show", response_class=HTMLResponse)
+def library_show(name: str) -> HTMLResponse:
+    prof = manager.show_profile(name)
+    return _page(
+        render.page_show_profile(name, prof, _tools_ok(), downloads_count=manager.count())
+    )
+
+
+@app.post("/library/scan")
+async def library_scan(request: Request) -> RedirectResponse:
+    from urllib.parse import parse_qs, urlencode
+
+    data = parse_qs((await request.body()).decode("utf-8"), keep_blank_values=True)
+    show = data.get("show", [""])[0]
+    if show:
+        manager.scan_show(show)
+        return RedirectResponse(url="/library/show?" + urlencode({"name": show}), status_code=303)
+    return RedirectResponse(url="/library", status_code=303)
+
+
+@app.post("/library/pattern")
+async def library_pattern(request: Request) -> RedirectResponse:
+    from urllib.parse import parse_qs, urlencode
+
+    data = parse_qs((await request.body()).decode("utf-8"), keep_blank_values=True)
+    show = data.get("show", [""])[0]
+    pid = data.get("pattern_id", [""])[0]
+    action = data.get("action", [""])[0]
+    label = data.get("label", [""])[0]
+    if show and pid:
+        if action == "confirm":
+            manager.confirm_pattern(show, pid, label)
+        elif action == "reject":
+            manager.reject_pattern(show, pid)
+        elif action == "relabel":
+            manager.relabel_pattern(show, pid, label)
+    target = "/library/show?" + urlencode({"name": show}) if show else "/library"
+    return RedirectResponse(url=target, status_code=303)
+
+
+@app.get("/clip")
+def clip(show: str, pattern: str) -> Response:
+    path = manager.clip_path(show, pattern)
+    if path is None:
+        return Response("Clip not available.", status_code=404)
+    return FileResponse(path, media_type="audio/mpeg")
 
 
 # ── live updates (enhancement) ─────────────────────────────────────────────────

@@ -10,17 +10,19 @@ from __future__ import annotations
 
 import asyncio
 import threading
+import time
 import uuid
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from collections import defaultdict
-
-from . import chapters, download, repetition, splice
+from . import chapters, download, profile, repetition, splice
 from .config import config
 from .download import safe_name
+
+AUDIO_EXTS = (".mp3", ".m4a", ".aac", ".ogg", ".wav", ".mp4")
 
 
 @dataclass
@@ -236,7 +238,7 @@ class DownloadManager:
             threading.Thread(target=self._run_repetition, args=(bid,), daemon=True).start()
 
     def _run_repetition(self, batch_id: str) -> None:
-        """Detect and cut segments that recur across the batch's episodes."""
+        """After a batch downloads, learn/apply patterns per show folder."""
         if not config.remove_ads:
             return
         if not (repetition.fpcalc_available() and splice.ffmpeg_available()):
@@ -249,40 +251,177 @@ class DownloadManager:
                 and it.status in ("completed", "skipped")
                 and it.rel_path
             ]
-        # Group by the on-disk show folder; dedupe each group independently.
         groups: dict[Path, list[DownloadItem]] = defaultdict(list)
         for it in members:
             groups[(config.download_dir / it.rel_path).parent].append(it)
-        for items in groups.values():
-            if len(items) >= config.dedupe_min_episodes:
-                try:
-                    self._dedupe_group(items)
-                except Exception:
-                    pass  # best-effort; downloads are already safe on disk
+        for folder, items in groups.items():
+            item_by_path = {
+                str((config.download_dir / it.rel_path)): it for it in items
+            }
+            try:
+                self._process_folder(folder, item_by_path)
+            except Exception:
+                pass  # best-effort; downloads are already safe on disk
 
-    def _dedupe_group(self, items: list[DownloadItem]) -> None:
-        fingerprints: list[list[int]] = []
-        item_secs: list[float] = []
-        paired: list[tuple[DownloadItem, Path]] = []
-        for it in items:
-            path = config.download_dir / it.rel_path
-            fp = repetition.fingerprint(path)
-            if fp is None:
-                continue
-            fingerprints.append(fp[0])
-            item_secs.append(fp[1])
-            paired.append((it, path))
-        if len(paired) < config.dedupe_min_episodes:
+    # ── show profiles ──────────────────────────────────────────────────────────
+    def _audio_files(self, folder: Path) -> list[Path]:
+        if not folder.exists():
+            return []
+        return sorted(
+            p
+            for p in folder.iterdir()
+            if p.is_file()
+            and p.suffix.lower() in AUDIO_EXTS
+            and not p.name.endswith(".tmp")
+        )
+
+    def _process_folder(
+        self, folder: Path, item_by_path: dict[str, DownloadItem] | None = None
+    ) -> None:
+        """Detect recurring segments across a show's files, persist them as
+        patterns, and cut — auto, or (in review mode) only confirmed ones."""
+        show_key = folder.name
+        files = self._audio_files(folder)
+        if not files:
             return
-        per_file = repetition.recurring_segments(fingerprints, item_secs)
-        for (it, path), segs in zip(paired, per_file):
-            if not segs:
-                continue
-            did_cut, seconds = splice.cut(path, segs)
-            if did_cut:
-                it.ads_removed += len(segs)
-                it.ad_seconds += seconds
-                self._broadcast({"type": "item", **it.as_dict()})
+        prof = profile.load(show_key)
+
+        fps: dict[Path, tuple[list[int], float]] = {}
+        for p in files:
+            fp = repetition.fingerprint(p)
+            if fp is not None:
+                fps[p] = fp
+        if not fps:
+            return
+
+        paths = list(fps.keys())
+        fingerprints = [fps[p][0] for p in paths]
+        item_secs = [fps[p][1] for p in paths]
+        review = config.review_ads
+
+        # Cross-detect new recurring segments only when there are enough files.
+        if len(paths) >= config.dedupe_min_episodes:
+            detected = repetition.recurring_segments(fingerprints, item_secs)
+        else:
+            detected = [[] for _ in paths]
+
+        win = repetition._WINDOW
+        for idx, p in enumerate(paths):
+            items_fp, isec = fingerprints[idx], item_secs[idx]
+            auto_cut: list[tuple[float, float]] = []
+            for (s, e) in detected[idx]:
+                seg_items = items_fp[int(round(s / isec)) : int(round(e / isec))]
+                if len(seg_items) < win:
+                    continue
+                pat, is_new = profile.add_or_update(
+                    prof, seg_items, isec, e - s,
+                    status="pending" if review else "confirmed",
+                )
+                if review and is_new:
+                    # Save a preview clip from this (still-uncut) file.
+                    clip_rel = f"{show_key}/clips/{pat.id}{p.suffix}"
+                    if splice.extract_clip(p, s, e, config.profiles_dir / clip_rel):
+                        pat.clip = clip_rel
+                elif not review:
+                    auto_cut.append((s, e))
+
+            confirmed = profile.apply_profile(prof, items_fp, isec, statuses=("confirmed",))
+            cut_segs = profile._merge(auto_cut + confirmed)
+            if cut_segs:
+                did_cut, seconds = splice.cut(p, cut_segs)
+                if did_cut:
+                    it = (item_by_path or {}).get(str(p))
+                    if it is not None:
+                        it.ads_removed += len(cut_segs)
+                        it.ad_seconds += seconds
+                        self._broadcast({"type": "item", **it.as_dict()})
+        profile.save(prof)
+
+    # Public profile operations (called from the web layer) ----------------------
+    def list_shows(self) -> list[dict[str, Any]]:
+        shows: list[dict[str, Any]] = []
+        if config.download_dir.exists():
+            for d in sorted(config.download_dir.iterdir()):
+                if not d.is_dir():
+                    continue
+                prof = profile.load(d.name)
+                shows.append(
+                    {
+                        "key": d.name,
+                        "episodes": len(self._audio_files(d)),
+                        "patterns": len(prof.patterns),
+                        "pending": sum(1 for x in prof.patterns if x.status == "pending"),
+                        "confirmed": sum(1 for x in prof.patterns if x.status == "confirmed"),
+                    }
+                )
+        return shows
+
+    def show_profile(self, show_key: str) -> profile.ShowProfile:
+        return profile.load(show_key)
+
+    def scan_show(self, show_key: str) -> bool:
+        folder = config.download_dir / safe_name(show_key, "show")
+        if folder.name != show_key:  # reject traversal / mismatched keys
+            folder = config.download_dir / show_key
+        if not folder.exists() or folder.parent != config.download_dir:
+            return False
+        if not (repetition.fpcalc_available() and splice.ffmpeg_available()):
+            return False
+        threading.Thread(target=self._process_folder, args=(folder, None), daemon=True).start()
+        return True
+
+    def confirm_pattern(self, show_key: str, pattern_id: str, label: str = "") -> bool:
+        prof = profile.load(show_key)
+        pat = prof.by_id(pattern_id)
+        if pat is None:
+            return False
+        pat.status = "confirmed"
+        if label in profile.LABELS:
+            pat.label = label
+        pat.updated_at = time.time()
+        profile.save(prof)
+        folder = config.download_dir / show_key
+        if folder.exists():
+            threading.Thread(target=self._process_folder, args=(folder, None), daemon=True).start()
+        return True
+
+    def reject_pattern(self, show_key: str, pattern_id: str) -> bool:
+        prof = profile.load(show_key)
+        pat = prof.by_id(pattern_id)
+        if pat is None:
+            return False
+        pat.status = "rejected"
+        pat.updated_at = time.time()
+        if pat.clip:
+            try:
+                (config.profiles_dir / pat.clip).unlink()
+            except Exception:
+                pass
+            pat.clip = ""
+        profile.save(prof)
+        return True
+
+    def relabel_pattern(self, show_key: str, pattern_id: str, label: str) -> bool:
+        if label not in profile.LABELS:
+            return False
+        prof = profile.load(show_key)
+        pat = prof.by_id(pattern_id)
+        if pat is None:
+            return False
+        pat.label = label
+        pat.updated_at = time.time()
+        profile.save(prof)
+        return True
+
+    def clip_path(self, show_key: str, pattern_id: str) -> Path | None:
+        prof = profile.load(show_key)
+        pat = prof.by_id(pattern_id)
+        if pat is None or not pat.clip:
+            return None
+        path = (config.profiles_dir / pat.clip).resolve()
+        if config.profiles_dir.resolve() not in path.parents or not path.exists():
+            return None
+        return path
 
 
 manager = DownloadManager()
