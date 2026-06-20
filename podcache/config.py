@@ -77,7 +77,8 @@ class Config:
     # items of the same audio differ by a few bits across re-encodes, so matching
     # is by Hamming distance, not equality.
     fp_max_bit_err: int = max(0, int(os.environ.get("PODCACHE_FP_MAX_BIT_ERR", "8")))
-    fp_min_seconds: float = max(0.5, float(os.environ.get("PODCACHE_FP_MIN_SECONDS", "2.5")))
+    # Minimum length (seconds) for a recurring segment to count as a pattern.
+    fp_min_seconds: float = max(0.5, float(os.environ.get("PODCACHE_FP_MIN_SECONDS", "5")))
     fp_min_shows: int = max(2, int(os.environ.get("PODCACHE_FP_MIN_SHOWS", "2")))
 
     # Server

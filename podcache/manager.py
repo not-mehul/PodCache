@@ -318,12 +318,13 @@ class DownloadManager:
                     prof, seg_items, isec, e - s,
                     status="pending" if review else "confirmed",
                 )
-                if review and is_new:
-                    # Save a preview clip from this (still-uncut) file.
-                    clip_rel = f"{show_key}/clips/{pat.id}{p.suffix}"
+                # Save a preview clip from this (still-uncut) file, in both modes,
+                # so every pattern is reviewable. Always an .mp3.
+                if is_new and not pat.clip:
+                    clip_rel = f"{show_key}/clips/{pat.id}.mp3"
                     if splice.extract_clip(p, s, e, config.profiles_dir / clip_rel):
                         pat.clip = clip_rel
-                elif not review:
+                if not review:
                     auto_cut.append((s, e))
 
             confirmed = profile.apply_profile(prof, items_fp, isec, statuses=("confirmed",))

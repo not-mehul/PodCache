@@ -89,19 +89,25 @@ def _restore_tags(src: Path, dst: Path) -> None:
 
 
 def extract_clip(src: Path, start: float, end: float, out: Path) -> bool:
-    """Write the [start, end] slice of `src` to `out` (stream copy). For previews."""
+    """Write the [start, end] slice of `src` to `out` (an .mp3 preview clip).
+
+    Tries a fast stream copy first; falls back to re-encoding to MP3 so the clip
+    is always produced even when the source codec can't be copied into MP3.
+    """
     if not ffmpeg_available():
         return False
-    try:
-        out.parent.mkdir(parents=True, exist_ok=True)
-        subprocess.run(
-            ["ffmpeg", "-y", "-loglevel", "error", "-i", str(src),
-             "-ss", f"{max(0.0, start):.3f}", "-to", f"{end:.3f}", "-c", "copy", str(out)],
-            check=True,
-        )
-        return out.exists()
-    except Exception:
-        return False
+    out.parent.mkdir(parents=True, exist_ok=True)
+    dur = max(0.2, end - max(0.0, start))
+    base = ["ffmpeg", "-y", "-loglevel", "error",
+            "-ss", f"{max(0.0, start):.3f}", "-i", str(src), "-t", f"{dur:.3f}", "-vn"]
+    for codec in (["-c", "copy"], ["-c:a", "libmp3lame", "-q:a", "5"]):
+        try:
+            subprocess.run(base + codec + [str(out)], check=True)
+            if out.exists() and out.stat().st_size > 0:
+                return True
+        except Exception:
+            continue
+    return False
 
 
 def cut(audio_path: Path, ads: list[tuple[float, float]]) -> tuple[bool, float]:
