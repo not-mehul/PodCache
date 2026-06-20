@@ -15,16 +15,15 @@ from __future__ import annotations
 import json
 import time
 import uuid
-from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
 from .config import config
+from . import repetition
 
-_WINDOW = 10            # fingerprint items per shingle
-_FIND_MIN_RATIO = 0.55  # fraction of a pattern's shingles that must align to match
-_SAME_PATTERN = 0.6     # overlap coefficient above which two patterns are "the same"
+_FIND_MIN_RATIO = 0.55  # fraction of a pattern that must align to count as a match
+_SAME_PATTERN = 0.6     # match ratio above which two patterns are "the same"
 
 LABELS = ("ad", "intro", "outro")
 STATUSES = ("pending", "confirmed", "rejected")
@@ -95,44 +94,24 @@ def list_profiles() -> list[str]:
     return sorted(p.stem for p in config.profiles_dir.glob("*.json"))
 
 
-# ── fingerprint matching ─────────────────────────────────────────────────────
-def _shingles(items: list[int], window: int = _WINDOW) -> list[int]:
-    return [hash(tuple(items[p : p + window])) for p in range(len(items) - window + 1)]
-
-
+# ── fingerprint matching (Hamming-tolerant; see repetition.py) ───────────────
 def patterns_similar(a: list[int], b: list[int]) -> bool:
     """True when two fingerprints describe (mostly) the same audio."""
-    if len(a) < _WINDOW or len(b) < _WINDOW:
+    if not a or not b:
         return a == b
-    sa, sb = set(_shingles(a)), set(_shingles(b))
-    if not sa or not sb:
-        return False
-    overlap = len(sa & sb) / min(len(sa), len(sb))
-    return overlap >= _SAME_PATTERN
+    short, long = (a, b) if len(a) <= len(b) else (b, a)
+    return repetition.best_ratio(short, long, max_bit_err=config.fp_max_bit_err) >= _SAME_PATTERN
 
 
 def find_in(pattern_items: list[int], target_items: list[int]) -> tuple[int, int] | None:
-    """Locate `pattern_items` inside `target_items`. Returns (start, end) item
-    indices in the target, or None. Robust to the pattern sitting at any offset."""
-    lp, lt = len(pattern_items), len(target_items)
-    if lp < _WINDOW or lt < _WINDOW:
+    """Locate `pattern_items` inside `target_items` (any offset, noise-tolerant).
+    Returns (start, end) item indices in the target, or None."""
+    if not pattern_items or not target_items:
         return None
-    target_pos: dict[int, list[int]] = defaultdict(list)
-    for tp, h in enumerate(_shingles(target_items)):
-        target_pos[h].append(tp)
-    pat_sh = _shingles(pattern_items)
-    votes: Counter[int] = Counter()
-    for pp, h in enumerate(pat_sh):
-        for tp in target_pos.get(h, ()):
-            votes[tp - pp] += 1
-    if not votes:
-        return None
-    best_off, score = votes.most_common(1)[0]
-    if score / len(pat_sh) < _FIND_MIN_RATIO:
-        return None
-    start = max(0, best_off)
-    end = min(lt, best_off + lp)
-    return (start, end) if end > start else None
+    return repetition.locate(
+        pattern_items, target_items,
+        max_bit_err=config.fp_max_bit_err, min_ratio=_FIND_MIN_RATIO,
+    )
 
 
 def apply_profile(

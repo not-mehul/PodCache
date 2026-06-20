@@ -23,6 +23,7 @@ from .config import config
 from .download import safe_name
 
 AUDIO_EXTS = (".mp3", ".m4a", ".aac", ".ogg", ".wav", ".mp4")
+_MIN_PATTERN_ITEMS = 8  # ignore detected segments too short to fingerprint usefully
 
 
 @dataclass
@@ -299,19 +300,19 @@ class DownloadManager:
         item_secs = [fps[p][1] for p in paths]
         review = config.review_ads
 
-        # Cross-detect new recurring segments only when there are enough files.
-        if len(paths) >= config.dedupe_min_episodes:
+        # Cross-detect new recurring segments — needs at least two episodes to
+        # compare. (A single file still gets cut via stored confirmed patterns.)
+        if len(paths) >= 2:
             detected = repetition.recurring_segments(fingerprints, item_secs)
         else:
             detected = [[] for _ in paths]
 
-        win = repetition._WINDOW
         for idx, p in enumerate(paths):
             items_fp, isec = fingerprints[idx], item_secs[idx]
             auto_cut: list[tuple[float, float]] = []
             for (s, e) in detected[idx]:
                 seg_items = items_fp[int(round(s / isec)) : int(round(e / isec))]
-                if len(seg_items) < win:
+                if len(seg_items) < _MIN_PATTERN_ITEMS:
                     continue
                 pat, is_new = profile.add_or_update(
                     prof, seg_items, isec, e - s,
