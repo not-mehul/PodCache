@@ -133,13 +133,25 @@ def cut(audio_path: Path, ads: list[tuple[float, float]]) -> tuple[bool, float]:
             parts: list[Path] = []
             for idx, (start, end) in enumerate(keep):
                 part = tmpdir / f"part_{idx:04d}{audio_path.suffix}"
-                cmd = ["ffmpeg", "-y", "-loglevel", "error", "-i", str(audio_path),
-                       "-ss", f"{start:.3f}"]
+                # Input seeking (-ss before -i) + duration is reliable with
+                # stream copy. -vn drops any embedded cover-art *video* stream,
+                # which otherwise gets no packets in a slice and fails the mux
+                # ("at least one of its streams received no packets"). The cover
+                # art is restored from the tags afterwards.
+                cmd = ["ffmpeg", "-y", "-loglevel", "error",
+                       "-ss", f"{start:.3f}", "-i", str(audio_path)]
                 if end is not None:
-                    cmd += ["-to", f"{end:.3f}"]
-                cmd += ["-c", "copy", str(part)]
+                    dur = end - start
+                    if dur <= 0.03:
+                        continue
+                    cmd += ["-t", f"{dur:.3f}"]
+                cmd += ["-vn", "-c", "copy", str(part)]
                 subprocess.run(cmd, check=True)
-                parts.append(part)
+                if part.exists() and part.stat().st_size > 0:
+                    parts.append(part)
+
+            if not parts:
+                return (False, 0.0)
 
             listfile = tmpdir / "concat.txt"
             listfile.write_text(
@@ -148,7 +160,7 @@ def cut(audio_path: Path, ads: list[tuple[float, float]]) -> tuple[bool, float]:
             out_tmp = audio_path.with_suffix(audio_path.suffix + ".cut")
             subprocess.run(
                 ["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
-                 "-i", str(listfile), "-c", "copy", str(out_tmp)],
+                 "-i", str(listfile), "-vn", "-c", "copy", str(out_tmp)],
                 check=True,
             )
         _restore_tags(audio_path, out_tmp)
